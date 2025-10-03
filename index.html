@@ -1121,6 +1121,7 @@ function googleFlightUrl(f){
           callbacks: { label: (ctx)=>`${ctx.dataset.label}: ${ctx.parsed.y?.toFixed?.(1) ?? '—'} °C` }
         }
       }
+    }
   });
 
   const windChart = new Chart(document.getElementById('windChart').getContext('2d'), {
