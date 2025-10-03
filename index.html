@@ -604,11 +604,26 @@
   async function fetchWeather(){ try{ const res=await fetch(bust(WEATHER_URL), { headers:{"Accept":"application/json"}, cache:"no-cache" }); const text=await res.text(); let json; try{ json=JSON.parse(text);}catch{ const cleaned=text.trim().replace(/^[\uFEFF]/, "").replace(/<\/?pre[^>]*>/gi, ""); json=JSON.parse(cleaned);} renderWeather(json); lastWeatherTs=Date.now(); updateStatus(); }catch(e){ console.error("Værfeil:", e); } }
 
   // --- Måne ---
-  function phaseName(deg){ const d=((deg%360)+360)%360; if(d<10||d>=350) return "Nymåne"; if(Math.abs(d-90)<10) return "Første kvarter"; if(Math.abs(d-180)<10) return "Fullmåne"; if(Math.abs(d-270)<10) return "Siste kvarter"; return d<180?"Voksende":"Minkende"; }
-  function illumFrac(deg){ return (1 - Math.cos((deg*Math.PI)/180)) / 2; }
-  function renderMoonSVG(deg){ const size=120,r=size/2,cx=r,cy=r,phi=(deg*Math.PI)/180; const rx=Math.abs(Math.cos(phi))*r; const N=64; const sample=(from,to,fn)=>{const pts=[]; for(let i=0;i<=N;i++){ const t=from+(to-from)*(i/N); pts.push(fn(t)); } return pts;}; const circle=t=>[cx+r*Math.cos(t), cy+r*Math.sin(t)]; const eRight=t=>[cx+rx*Math.cos(t), cy+r*Math.sin(t)]; const eLeft=t=>[cx-rx*Math.cos(t), cy+r*Math.sin(t)]; let pts=[]; if (deg<=180){ pts=pts.concat(sample(-Math.PI/2, Math.PI/2, circle)); if (deg<=90) pts=pts.concat(sample(Math.PI/2, -Math.PI/2, eRight)); else pts=pts.concat(sample(Math.PI/2, -Math.PI/2, eLeft)); } else { pts=pts.concat(sample(Math.PI/2, 3*Math.PI/2, circle)); if (deg<=270) pts=pts.concat(sample(-Math.PI/2, Math.PI/2, eRight)); else pts=pts.concat(sample(-Math.PI/2, Math.PI/2, eLeft)); } const d=["M", pts[0][0].toFixed(3), pts[0][1].toFixed(3)].concat(pts.slice(1).flatMap(([x,y])=>["L", x.toFixed(3), y.toFixed(3)])).concat(["Z"]).join(" "); const defs=`<defs><filter id="moonGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="b1"/><feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`; const bg=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="#1e2228"/>`; const lit=`<g filter="url(#moonGlow)"><path d="${d}" fill="#ffffff"/></g>`; const rim=`<circle cx="${cx}" cy="${cy}" r="${r-0.6}" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>`; moonSvg.innerHTML = defs+bg+lit+rim; moonSvg.setAttribute("viewBox", `0 0 ${size} ${size}`); }
-  function deepFindMoonphase(obj){ if(!obj||typeof obj!=="object") return null; if("moonphase" in obj){ const mp=obj.moonphase; if(mp&&typeof mp==="object"&&"value" in mp) return Number(mp.value); if(typeof mp==="number") return mp; } for(const k of Object.keys(obj)){ const v=obj[k]; const found=typeof v==="object"?deepFindMoonphase(v):null; if(found!=null&&!Number.isNaN(found)) return found; } return null; }
-  async function fetchMoon(){ try{ const res=await fetch(MOON_URL, { cache:"no-cache" }); const data=await res.json(); let deg=deepFindMoonphase(data); if (deg==null||!Number.isFinite(deg)) throw new Error("Fant ikke moonphase"); deg=((deg%360)+360)%360; const illum=illumFrac(deg); renderMoonSVG(deg); moonText.textContent = `${phaseName(deg)} • ${(illum*100).toFixed(0)}%`; }catch(err){ console.error("Moon API-feil:", err); moonText.textContent = "Kunne ikke hente månefasen nå."; renderMoonSVG(0);} }
+  async function fetchMoon() {
+    try {
+      const response = await fetch('moon_service.php?lat=64.33&lon=10.41&_=' + Date.now());
+      const result = await response.json();
+
+      if (result.success) {
+        moonSvg.innerHTML = result.data.svg;
+        moonSvg.setAttribute("viewBox", "0 0 120 120");
+        moonText.textContent = result.data.text;
+      } else {
+        throw new Error(result.error || 'Ukjent feil');
+      }
+    } catch (err) {
+      console.error("Moon service error:", err);
+      moonText.textContent = "Kunne ikke hente månefasen nå.";
+      // Fallback: simple circle
+      moonSvg.innerHTML = '<circle cx="60" cy="60" r="60" fill="#1e2228"/><circle cx="60" cy="60" r="59.4" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>';
+      moonSvg.setAttribute("viewBox", "0 0 120 120");
+    }
+  }
 
   // --- Time-for-time ---
   function iconForSymbol(symbol_code){ if(!symbol_code) return null; const id = YR_SYMBOL_MAP[symbol_code]; return id ? `${ICON_BASE}${id}.svg` : iconDefault; }
