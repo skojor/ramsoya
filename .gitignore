@@ -41,3 +41,31 @@ pids
 # PHP
 vendor/
 composer.lock
+
+# Backup files
+*.bak
+*.backup
+*.orig
+*.rej
+
+# Editor swap/temporary files
+*.swp
+*.swo
+.vimrc
+
+# Database files (if using SQLite locally)
+*.sqlite
+*.sqlite3
+*.db
+
+# Cache directories
+cache/
+temp/
+tmp/
+
+# Upload directories (if they contain user uploads)
+uploads/
+
+# Configuration files with sensitive data
+config.local.php
+database.config.php
