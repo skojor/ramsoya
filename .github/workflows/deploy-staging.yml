@@ -21,7 +21,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}  # ← vår private key
           port: 22                     # ← endre hvis SSH kjører på en annen port
           script: |
-            cd www
+            cd web
             git pull || git clone https://github.com/<bruker>/<repo>.git .
             git checkout staging
             git pull
