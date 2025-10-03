@@ -1,26 +1,10 @@
-name: Deploy to Staging
-
-on:
-  push:
-    branches:
-      - staging    # kjør workflow hver gang du pusher til staging-branch
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout kode
-        uses: actions/checkout@v4
-
-      - name: Deploy til server via SSH
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: homer.skorstad.name         # ← IP eller domenenavn til serveren
-          username: jskorstagh           # ← brukeren som har tilgang til staging-mappen
-          key: ${{ secrets.SSH_KEY }}  # ← vår private key
-          port: 22                     # ← endre hvis SSH kjører på en annen port
-          script: |
-            cd web
-            git pull
+- name: Deploy via SCP
+  uses: appleboy/scp-action@v0.1.7
+  with:
+    host: ${{ secrets.SERVER_IP }}
+    username: youruser
+    key: ${{ secrets.SSH_KEY }}
+    port: 22
+    source: "."
+    target: "web/"
 
