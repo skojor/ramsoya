@@ -1,10 +1,25 @@
-- name: Deploy via SCP
-  uses: appleboy/scp-action@v0.1.7
-  with:
-    host: ${{ secrets.SERVER_IP }}
-    username: youruser
-    key: ${{ secrets.SSH_KEY }}
-    port: 22
-    source: "."
-    target: "web/"
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          source: "."
+          target: "web/"
 
