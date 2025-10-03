@@ -613,7 +613,7 @@
   // --- Time-for-time ---
   function iconForSymbol(symbol_code){ if(!symbol_code) return null; const id = YR_SYMBOL_MAP[symbol_code]; return id ? `${ICON_BASE}${id}.svg` : iconDefault; }
   function pickHourlySymbol(item){ return item?.data?.next_1_hours?.summary?.symbol_code || item?.data?.next_6_hours?.summary?.symbol_code || item?.data?.next_12_hours?.summary?.symbol_code || null; }
-  function renderHourly(series){ const now=Date.now(); const upcoming=series.filter(it=>new Date(it.time).getTime()>=now); const cards=[]; for(let i=0;i<upcoming.length && cards.length<6;i+=4){ const it=upcoming[i]; const hasPeriod = it?.data?.next_1_hours || it?.data?.next_6_hours || it?.data?.next_12_hours; if(!hasPeriod) continue; const tUTC=new Date(it.time); const tLocal=new Date(tUTC.toLocaleString('en-US',{timeZone: tzOslo})); const timeLabel=hourFmt.format(tLocal); const T=it?.data?.instant?.details?.air_temperature; const tDisp=Number.isFinite(T)?`${Math.round(T)}°`:'–'; const p1=it?.data?.next_1_hours?.details?.precipitation_amount; const p6=it?.data?.next_6_hours?.details?.precipitation_amount; const p12=it?.data?.next_12_hours?.details?.precipitation_amount; const precip=(p1 ?? p6 ?? p12 ?? 0); const pDisp=`${(+precip).toFixed(1)} mm`; const d=it?.data?.instant?.details || {}; const wind=d.wind_speed; const gust=d.wind_speed_of_gust; const windFrom=d.wind_from_direction; const bf=(function(ms){ const b = ms<0.5?0: ms<1.6?1: ms<3.4?2: ms<5.5?3: ms<8.0?4: ms<10.8?5: ms<13.9?6: ms<17.2?7: ms<20.8?8: ms<24.5?9: ms<28.5?10: ms<32.7?11:12; const txt=["stille","flau vind","svak vind","lett bris","laber bris","frisk bris","liten kuling","stiv kuling","sterk kuling","liten storm","full storm","sterk storm","orkan"][b]; return {bft:b, txt};})(wind ?? -1); let bearing=null; if (windFrom!=null){ bearing=(WIND_ARROW_MODE==='from')?windFrom:norm360(windFrom+180);} const rot=(bearing==null)?null:norm360(bearing-90); const arrow = (Number.isFinite(wind) && Number.isFinite(windFrom)) ? window.windBarbSVG(wind, windFrom) : ""; const windTxt=(wind==null)?"– m/s":`${Math.round(wind)} m/s${gust?` (kast ${Math.round(gust)})`:""}${Number.isFinite(wind)?` – ${bf.txt}`:""}`; const sym=pickHourlySymbol(it); const iconPath=iconForSymbol(sym); cards.push({ timeLabel, tDisp, pDisp, windTxt, arrow, iconPath, sym }); }
+  function renderHourly(series){ const now=Date.now(); const upcoming=series.filter(it=>new Date(it.time).getTime()>=now); const cards=[]; for(let i=0;i<upcoming.length && cards.length<6;i+=4){ const it=upcoming[i]; const hasPeriod = it?.data?.next_1_hours || it?.data?.next_6_hours || it?.data?.next_12_hours; if(!hasPeriod) continue; const tUTC=new Date(it.time); const tLocal=new Date(tUTC.toLocaleString('en-US',{timeZone: tzOslo})); const timeLabel=hourFmt.format(tLocal); const T=it?.data?.instant?.details?.air_temperature; const tDisp=Number.isFinite(T)?`${Math.round(T)}°`:'–'; const p1=it?.data?.next_1_hours?.details?.precipitation_amount; const p6=it?.data?.next_6_hours?.details?.precipitation_amount; const p12=it?.data?.next_12_hours?.details?.precipitation_amount; const precip=(p1 ?? p6 ?? p12 ?? 0); const pDisp=`${(+precip).toFixed(1)} mm`; const d=it?.data?.instant?.details || {}; const wind=d.wind_speed; const gust=d.wind_speed_of_gust; const windFrom=d.wind_from_direction; const bf=(function(ms){ const b = ms<0.5?0: ms<1.6?1: ms<3.4?2: ms<5.5?3: ms<8.0?4: ms<10.8?5: ms<13.9?6: ms<17.2?7: ms<20.8?8: ms<24.5?9: ms<28.5?10:ms<32.7?11:12; const txt=["stille","flau vind","svak vind","lett bris","laber bris","frisk bris","liten kuling","stiv kuling","sterk kuling","liten storm","full storm","sterk storm","orkan"][b]; return {bft:b, txt};})(wind ?? -1); let bearing=null; if (windFrom!=null){ bearing=(WIND_ARROW_MODE==='from')?windFrom:norm360(windFrom+180);} const rot=(bearing==null)?null:norm360(bearing-90); const arrow = (Number.isFinite(wind) && Number.isFinite(windFrom)) ? window.windBarbSVG(wind, windFrom) : ""; const windTxt=(wind==null)?"– m/s":`${Math.round(wind)} m/s${gust?` (kast ${Math.round(gust)})`:""}${Number.isFinite(wind)?` – ${bf.txt}`:""}`; const sym=pickHourlySymbol(it); const iconPath=iconForSymbol(sym); cards.push({ timeLabel, tDisp, pDisp, windTxt, arrow, iconPath, sym }); }
     forecastHourlyEl.innerHTML='';
     for(const c of cards){ const el=document.createElement('div'); el.className='fcH-card'; el.innerHTML=`<div class="fcH-time">${c.timeLabel}</div><div class="fcH-icon">${c.iconPath?`<img src="${c.iconPath}" alt="${c.sym}" onerror="this.onerror=null;this.src='${ICON_BASE}04.svg';this.alt='cloudy';">`:'—'}</div><div class="fcH-t">${c.tDisp}</div><div class="fcH-mm">${c.pDisp}</div><div class="fcH-wind">${c.windTxt} ${c.arrow}</div>`; forecastHourlyEl.appendChild(el);} }
   async function loadForecastHourly(){ try{ const res=await fetch(FORECAST_URL,{cache:'no-cache'}); const raw=await res.text(); if(!res.ok){ console.error('Forecast HTTP',res.status,raw.slice(0,200)); forecastHourlyEl.textContent='Kunne ikke hente varsel.'; return;} let json; try{ json=JSON.parse(raw);}catch(e){ console.error('Forecast JSON',e,raw.slice(0,200)); forecastHourlyEl.textContent='Ugyldig varseldata.'; return;} const series=json?.properties?.timeseries||[]; if(!series.length){ forecastHourlyEl.textContent='Ingen varseldata.'; return;} renderHourly(series);}catch(e){ console.error('Forecast error',e); forecastHourlyEl.textContent='Kunne ikke hente varsel.'; } }
@@ -884,514 +884,72 @@ function googleFlightUrl(f){
     hentToNeste(); setInterval(hentToNeste, 30*60*1000);
   })();
   </script>
-<script>
-(function(){
-  const CLIENT_NAME = "ramsoy-index-prod";
-  const QUAY_RAMSOY   = "NSR:Quay:71232";
-  const QUAY_SANDVIKS = "NSR:Quay:71896";
 
-  const depEl = document.getElementById("entur-next-dep");
-  const updEl = document.getElementById("entur-updated");
+  <!-- Entur backend service integration -->
+  <script>
+  (function(){
+      const API_URL = 'entur_api.php';
+      const depEl = document.getElementById("entur-next-dep");
+      const updEl = document.getElementById("entur-updated");
 
-  // Utils
-  const fmtClock   = iso => iso ? new Intl.DateTimeFormat('nb-NO',{hour:'2-digit',minute:'2-digit'}).format(new Date(iso)) : null;
-  const fmtUpdated = d => `Oppdatert ${new Intl.DateTimeFormat('nb-NO',{hour:'2-digit',minute:'2-digit'}).format(d)}`;
-  const simplifyText = txt => (txt||"").replace(/\s+via\s+.*/i, "");
+      const ICON_PIN = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/></svg>`;
 
-  function enturStopUrl(stopPlaceId){
-    return `https://entur.no/nearby-stop-place-detail?id=${encodeURIComponent(stopPlaceId)}`;
-  }
-  const ICON_PIN  = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/></svg>`;
+      function formatTime(isoString) {
+          if (!isoString) return '—';
+          return new Intl.DateTimeFormat('nb-NO', {
+              hour: '2-digit',
+              minute: '2-digit',
+              timeZone: 'Europe/Oslo'
+          }).format(new Date(isoString));
+      }
 
-  async function gql(query, variables){
-    const r = await fetch("https://api.entur.io/journey-planner/v3/graphql",{
-      method:"POST",
-      headers:{ "Content-Type":"application/json", "ET-Client-Name": CLIENT_NAME },
-      body: JSON.stringify({ query, variables })
-    });
-    if(!r.ok) throw new Error("GraphQL feilet: "+r.status);
-    const payload = await r.json();
-    if(payload.errors) throw new Error(payload.errors.map(e=>e.message).join("; "));
-    return payload.data;
-  }
+      function enturStopUrl(stopPlaceId){
+          return `https://entur.no/nearby-stop-place-detail?id=${encodeURIComponent(stopPlaceId)}`;
+      }
 
-  // Quay -> StopPlace (for riktige lenker)
-  async function quayToStopPlace(id){
-    if (id.startsWith("NSR:StopPlace:")) return id;
-    if (id.startsWith("NSR:Quay:")){
-      const q = `query ($id:String!){ quay(id:$id){ stopPlace{ id } } }`;
-      const d = await gql(q,{id});
-      return d?.quay?.stopPlace?.id || id;
-    }
-    return id;
-  }
+      async function updateEntur(){
+          try {
+              updEl.textContent = "oppdaterer…";
 
-  // HENT tavle + DATED SERVICE JOURNEY (datofestet avgang) med alle stopp og sanntid
-async function fetchBoard(stopPlaceId, hours=120){
-  const q = `
-    query ($id:String!, $start:DateTime!, $range:Int!, $n:Int!){
-      stopPlace(id:$id){
-        estimatedCalls(startTime:$start, timeRange:$range, numberOfDepartures:$n){
-          quay { id }   # origin
-          realtime
-          cancellation
-          predictionInaccurate
-          aimedDepartureTime
-          expectedDepartureTime
-          actualDepartureTime
-          destinationDisplay { frontText }
+              const response = await fetch(API_URL + '?_=' + Date.now());
+              const result = await response.json();
 
-          # Preferert: datofestet reise (kan være null)
-          datedServiceJourney{
-            id
-            estimatedCalls{
-              quay { id }
-              realtime
-              cancellation
-              predictionInaccurate
-              aimedDepartureTime
-              expectedDepartureTime
-              actualDepartureTime
-              aimedArrivalTime
-              expectedArrivalTime
-              actualArrivalTime
-            }
+              if (result.success) {
+                  renderDepartures(result.data);
+                  updEl.textContent = `Oppdatert ${result.updated}`;
+              } else {
+                  throw new Error(result.error || 'Ukjent feil');
+              }
+          } catch (error) {
+              console.error('Entur backend error:', error);
+              depEl.innerHTML = '<div style="color: #ffb3b3;">Kunne ikke hente avganger</div>';
+              updEl.textContent = "feil ved oppdatering";
+          }
+      }
+
+      function renderDepartures(data) {
+          const { departures, stopPlaceUrl } = data;
+
+          if (!departures || departures.length === 0) {
+              depEl.innerHTML = '<div>Ingen avganger funnet</div>';
+              return;
           }
 
-          # Fallback: «vanlig» serviceJourney
-          serviceJourney{
-            id
-            estimatedCalls{
-              quay { id }
-              realtime
-              cancellation
-              predictionInaccurate
-              aimedDepartureTime
-              expectedDepartureTime
-              actualDepartureTime
-              aimedArrivalTime
-              expectedArrivalTime
-              actualArrivalTime
-            }
-          }
-        }
+          const html = departures.map(dep => {
+              const actionBtn = `<a class="iconbtn" href="${stopPlaceUrl}" target="_blank" rel="noopener" title="Åpne i Entur">${ICON_PIN}</a>`;
+              const realtimeBadge = dep.realtime ? ' <span style="background: #26c281; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">Live</span>' : '';
+              return `<div><strong>${formatTime(dep.time)}</strong>${realtimeBadge} ${dep.destination} <div class="row-actions">${actionBtn}</div></div>`;
+          }).join('');
+
+          depEl.innerHTML = html;
       }
-    }`;
-  const vars = {
-    id: stopPlaceId,
-    start: new Date().toISOString(),
-    range: hours * 3600,
-    n: 120
-  };
-  const d = await gql(q, vars);
-  return d?.stopPlace?.estimatedCalls ?? [];
-}
 
-  function minutesDiff(aIso, bIso){
-    if(!aIso || !bIso) return 0;
-    return Math.round((new Date(aIso) - new Date(bIso)) / 60000);
-  }
-  function deriveStatus(call){
-    if (call.cancellation) return "Kansellert";
-    const planned = call.aimedDepartureTime;
-    const live    = call.actualDepartureTime || call.expectedDepartureTime || planned;
-    const delta   = minutesDiff(live, planned);
-    if (Math.abs(delta) >= 1) return `${delta>0?"Forsinket":"Framskyndet"} ${delta>0?"+":""}${delta} min`;
-    if (call.realtime) return "I rute";
-    return "Planlagt";
-  }
+      // Load initially and set up refresh
+      updateEntur();
+      setInterval(updateEntur, 60_000); // Refresh every minute
+  })();
+  </script>
 
-  // Finn origin-indeks i DSJ vha. både kai og (nær) avgangstid
-  function findOriginIndex(dsjCalls, originQuayId, outerDepIso){
-    if (!Array.isArray(dsjCalls) || !originQuayId || !outerDepIso) return -1;
-    const outerTs = new Date(outerDepIso).getTime();
-    const WITHIN_MS = 15*60*1000, FLOOR_MS = 5*60*1000;
-
-    // Strengt ±15 min
-    let bestIdx = -1, bestAbs = Infinity;
-    dsjCalls.forEach((c,i)=>{
-      if (c?.quay?.id !== originQuayId) return;
-      const iso = bestDep(c); if(!iso) return;
-      const diff = Math.abs(new Date(iso).getTime() - outerTs);
-      if (diff <= WITHIN_MS && diff < bestAbs){ bestAbs = diff; bestIdx = i; }
-    });
-    if (bestIdx >= 0) return bestIdx;
-
-    // Fallback: nærmeste som ikke er «for langt bak» (>= outer - 5 min)
-    let fbIdx = -1, fbAbs = Infinity;
-    dsjCalls.forEach((c,i)=>{
-      if (c?.quay?.id !== originQuayId) return;
-      const iso = bestDep(c); if(!iso) return;
-      const delta = new Date(iso).getTime() - outerTs;
-      if (delta >= -FLOOR_MS && Math.abs(delta) < fbAbs){ fbAbs = Math.abs(delta); fbIdx = i; }
-    });
-    return fbIdx;
-  }
-
-const bestDep = x => x?.actualDepartureTime || x?.expectedDepartureTime || x?.aimedDepartureTime || null;
-const bestArr = x => x?.actualArrivalTime   || x?.expectedArrivalTime   || x?.aimedArrivalTime   || null;
-
-// Finn origin-indeks i sekvensen (DSJ/SJ) ved å matche quay + (nær) avgangstid
-function findOriginIndex(seq, originQuayId, outerDepIso){
-  if (!Array.isArray(seq) || !originQuayId || !outerDepIso) return -1;
-  const outerTs = new Date(outerDepIso).getTime();
-  const WITHIN = 15*60*1000, FLOOR = 5*60*1000;
-
-  // Strengt ±15 min
-  let bestIdx = -1, bestAbs = Infinity;
-  for (let i=0;i<seq.length;i++){
-    const c = seq[i];
-    if (c?.quay?.id !== originQuayId) continue;
-    const iso = bestDep(c); if(!iso) continue;
-    const diff = Math.abs(new Date(iso).getTime() - outerTs);
-    if (diff <= WITHIN && diff < bestAbs){ bestAbs = diff; bestIdx = i; }
-  }
-  if (bestIdx >= 0) return bestIdx;
-
-  // Fallback: nærmeste som ikke er «for langt bak»
-  let fbIdx = -1, fbAbs = Infinity;
-  for (let i=0;i<seq.length;i++){
-    const c = seq[i];
-    if (c?.quay?.id !== originQuayId) continue;
-    const iso = bestDep(c); if(!iso) continue;
-    const delta = new Date(iso).getTime() - outerTs;
-    if (delta >= -FLOOR && Math.abs(delta) < fbAbs){ fbAbs = Math.abs(delta); fbIdx = i; }
-  }
-  return fbIdx;
-}
-
-// Finn LEG der vi bruker SISTE origin-forekomst før target (sanntid hele veien)
-function computeLegAfterLastOriginBeforeTarget(outerCall, targetQuayId){
-  // velg DSJ hvis finnes, ellers SJ
-  let seq = outerCall?.datedServiceJourney?.estimatedCalls;
-  if (!Array.isArray(seq) || seq.length === 0){
-    seq = outerCall?.serviceJourney?.estimatedCalls || [];
-  }
-  const originQuayId = outerCall?.quay?.id || null;
-  const outerDepIso  = bestDep(outerCall);
-  if (!seq.length || !originQuayId || !outerDepIso) return null;
-
-  // 1) finn "vår" origin i sekvensen
-  const originIdx0 = findOriginIndex(seq, originQuayId, outerDepIso);
-  if (originIdx0 < 0) return null;
-
-  // 2) finn første target ETTER originIdx0
-  let targetIdx = -1;
-  for (let i = originIdx0 + 1; i < seq.length; i++){
-    if (seq[i]?.quay?.id === targetQuayId){ targetIdx = i; break; }
-  }
-  if (targetIdx < 0) return null;
-
-  // 3) gå bakover fra target for å finne SISTE forekomst av origin før target
-  let depIdx = originIdx0;
-  for (let i = targetIdx - 1; i > originIdx0; i--){
-    if (seq[i]?.quay?.id === originQuayId){ depIdx = i; break; }
-  }
-
-  const depCall = seq[depIdx];
-  const depIso  = bestDep(depCall);
-  const arrIso  = bestArr(seq[targetIdx]);
-  if (!depIso || !arrIso) return null;
-  if (new Date(arrIso).getTime() <= new Date(depIso).getTime()) return null; // må være etter dep
-
-  return { depIso, arrIso, depCallForStatus: depCall };
-}
-
-// Leg-finner som IGNORERER tavletid: velg første target i sekvensen,
-// så siste forekomst av origin FØR target. Brukes for planlagt fallback.
-function computeLegAnyOriginBeforeTarget(call, originQuayId, targetQuayId){
-  let seq = call?.datedServiceJourney?.estimatedCalls;
-  if (!Array.isArray(seq) || !seq.length){
-    seq = call?.serviceJourney?.estimatedCalls || [];
-  }
-  if (!seq.length) return null;
-  const tIdx = seq.findIndex(c => c?.quay?.id === targetQuayId);
-  if (tIdx <= 0) return null;
-  let depIdx = -1;
-  for (let i = tIdx - 1; i >= 0; i--){
-    if (seq[i]?.quay?.id === originQuayId){ depIdx = i; break; }
-  }
-  if (depIdx < 0) return null;
-  const depIso = bestDep(seq[depIdx]);
-  const arrIso = bestArr(seq[tIdx]);
-  if (!depIso || !arrIso) return null;
-  if (new Date(arrIso).getTime() <= new Date(depIso).getTime()) return null;
-  return { depIso, arrIso, depCallForStatus: seq[depIdx] };
-}
-
-// --- Unified renderer for a single departure line ---
-function appendDepartureLine({item, stopId, title, targetName, isFallback}){
-  const depClock = fmtClock(item.depIso) + labelIfTomorrow(item.depIso);
-  const dest = simplifyText(item.call?.destinationDisplay?.frontText || "");
-  const status = deriveStatus(item.depCallForStatus || item.call || {});
-  const arrClock = item.arrToTarget ? ` • Ankomst ${targetName} ${fmtClock(item.arrToTarget)}` : "";
-  const tooltip = '<span title="Entur mangler informasjon om mellomstopp, så anløpet kan ikke bekreftes.">anløp ' + targetName + ' ikke bekreftet</span>';
-  const note = isFallback ? ` • ${tooltip}` : "";
-  const txt = `${depClock} – ${dest} (${status})${arrClock}${note}`;
-  depEl.appendChild(makeLine(txt, stopId, title));
-}
-
-
-
-
-
-// Velg neste avgang fra A som faktisk besøker B, der vi tar SISTE avgang før target
-function pickNextWithArrival(calls, targetQuayId){
-  const now = Date.now();
-  const cand = (calls||[])
-    .map(c => {
-      const leg = computeLegAfterLastOriginBeforeTarget(c, targetQuayId);
-      if (!leg) return null;
-      if (new Date(leg.depIso).getTime() < now) return null; // kun framtid
-      return { call: c, depIso: leg.depIso, arrToTarget: leg.arrIso, depCallForStatus: leg.depCallForStatus };
-    })
-    .filter(Boolean)
-    .sort((a,b) => new Date(a.depIso) - new Date(b.depIso));
-  return cand[0] || null;
-}
-
-
-// Fallback: neste N planlagte avganger fra tavla (ingen garanti for anløp på mål)
-function pickUpcomingBasic(calls, maxCount = 1){
-  const now = Date.now();
-  return (calls || [])
-    .map(c => {
-      const depIso = bestDep(c);
-      if (!depIso) return null;
-      const ts = new Date(depIso).getTime();
-      if (ts < now) return null; // bare framtid
-      return { call: c, depIso };
-    })
-    .filter(Boolean)
-    .sort((a,b) => new Date(a.depIso) - new Date(b.depIso))
-    .slice(0, maxCount);
-}
-
-// Velg neste planlagte avgang som ser ut til å gå MOT target (basert på destinasjonstekst)
-// Skipper runder som bare returnerer til origin (dest == originName)
-function pickPlannedToward(calls, originName, targetPatterns, maxCount=1){
-  const now = Date.now();
-  const pats = (Array.isArray(targetPatterns) ? targetPatterns : [targetPatterns])
-               .filter(Boolean).map(p => new RegExp(p, 'i'));
-  const ok = (txt) => pats.length ? pats.some(rx => rx.test(txt||"")) : true;
-  return (calls||[])
-    .map(c => {
-      const depIso = bestDep(c); if (!depIso) return null;
-      const ts = new Date(depIso).getTime(); if (ts < now) return null;
-      const dest = (c.destinationDisplay?.frontText || "").trim();
-      return { call: c, depIso, dest };
-    })
-    .filter(Boolean)
-    .filter(o => o.dest !== originName)      // skip "tilbake til origin"-turer
-    .filter(o => ok(o.dest))                 // helst mot target
-    .sort((a,b) => new Date(a.depIso) - new Date(b.depIso))
-    .slice(0, maxCount);
-}
-
-
-
-
-
-// RELAXED: finn neste avgang som når target ved å se i hele reise-sekvensen
-function pickNextWithArrivalRelaxed(calls, originQuayId, targetQuayId){
-  const now = Date.now();
-  for (const outerCall of (calls || [])){
-    const outerDepIso = bestDep(outerCall);
-    if (!outerDepIso || new Date(outerDepIso).getTime() < now) continue;
-
-    let seq = outerCall?.datedServiceJourney?.estimatedCalls;
-    if (!Array.isArray(seq) || !seq.length){
-      seq = outerCall?.serviceJourney?.estimatedCalls || [];
-    }
-    if (!seq.length) continue;
-
-    const tIdx = seq.findIndex(c => c?.quay?.id === targetQuayId);
-    if (tIdx <= 0) continue;
-
-    let depIdx = -1;
-    for (let i = tIdx - 1; i >= 0; i--){
-      if (seq[i]?.quay?.id === originQuayId){ depIdx = i; break; }
-    }
-    if (depIdx < 0) continue;
-
-    const depIso = bestDep(seq[depIdx]);
-    const arrIso = bestArr(seq[tIdx]);
-    if (!depIso || !arrIso) continue;
-    if (new Date(arrIso).getTime() <= new Date(depIso).getTime()) continue;
-    if (new Date(depIso).getTime() < now) continue;
-
-    return { call: outerCall, depIso, arrToTarget: arrIso, depCallForStatus: seq[depIdx] };
-  }
-  return null;
-}
-
-// Planlagt fallback som KREVER at reisen faktisk når target via reise-sekvensen
-function pickPlannedWithLeg(calls, targetQuayId){
-  const now = Date.now();
-  for (const c of (calls||[])){
-    const depIso0 = bestDep(c);
-    if (!depIso0) continue;
-    if (new Date(depIso0).getTime() < now) continue;
-    const originId = c?.quay?.id; // origin kai for tavleraden
-    const leg = computeLegAnyOriginBeforeTarget(c, originId, targetQuayId);
-    if (!leg) continue;
-    return { call: c, depIso: leg.depIso, arrToTarget: leg.arrIso, depCallForStatus: leg.depCallForStatus };
-  }
-  return null;
-}
-
-// Finn neste forekomst av origin (samme kai) i reise-sekvensen etter en gitt avgangstid
-function nextOriginAfter(call, originQuayId, afterIso){
-  let seq = call?.datedServiceJourney?.estimatedCalls;
-  if (!Array.isArray(seq) || !seq.length){
-    seq = call?.serviceJourney?.estimatedCalls || [];
-  }
-  if (!seq.length) return null;
-  const afterTs = new Date(afterIso).getTime();
-  // Finn alle forekomster av origin etter 'afterIso'
-  const candidates = seq.filter(c => c?.quay?.id === originQuayId && bestDep(c))
-                        .map(c => ({ c, ts: new Date(bestDep(c)).getTime() }))
-                        .filter(o => o.ts > afterTs)
-                        .sort((a,b)=>a.ts-b.ts);
-  if (!candidates.length) return null;
-  return bestDep(candidates[0].c);
-}
-
-
-
-
-
-
-
-// Label "(i morgen)" på tider som er neste lokale kalenderdag
-function labelIfTomorrow(iso){
-  if (!iso) return "";
-  const tz = 'Europe/Oslo';
-  try{
-    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit' });
-    const toYMD = (d) => {
-      const parts = fmt.formatToParts(d);
-      const y = parts.find(p=>p.type==='year').value;
-      const m = parts.find(p=>p.type==='month').value;
-      const dd= parts.find(p=>p.type==='day').value;
-      return `${y}-${m}-${dd}`;
-    };
-    const todayY = toYMD(new Date());
-    const [Y,M,D] = todayY.split('-').map(Number);
-    const baseUTCNoon = Date.UTC(Y, M-1, D, 12, 0, 0);
-    const tomorrow = new Date(baseUTCNoon + 24*3600*1000);
-    const depY = toYMD(new Date(iso));
-    const tomorrowY = toYMD(tomorrow);
-    return depY === tomorrowY ? ' <span class="badge-tomorrow">(i morgen)</span>' : "";
-  }catch(e){
-    return "";
-  }
-}
-
-
-  
-
-
-
-
-async function updateEntur(){
-  try{
-    const stopR = await quayToStopPlace(QUAY_RAMSOY);
-    const stopS = await quayToStopPlace(QUAY_SANDVIKS);
-
-    const [boardR, boardS] = await Promise.all([
-      fetchBoard(stopR),  // FRA Ramsøy
-      fetchBoard(stopS)   // FRA Sandviksberget
-    ]);
-
-    let reasonR = 'strict', reasonS = 'strict';
-    let nextR = pickNextWithArrival(boardR, QUAY_SANDVIKS);
-    let nextS = pickNextWithArrival(boardS, QUAY_RAMSOY);
-
-    if (!nextR){ nextR = pickNextWithArrivalRelaxed(boardR, QUAY_RAMSOY, QUAY_SANDVIKS); if (nextR) reasonR='relaxed'; }
-    if (!nextS){ nextS = pickNextWithArrivalRelaxed(boardS, QUAY_SANDVIKS, QUAY_RAMSOY); if (nextS) reasonS='relaxed'; }
-
-    if (!nextR){ nextR = pickPlannedWithLeg(boardR, QUAY_SANDVIKS); if (nextR) reasonR='planned-leg'; }
-    if (!nextS){ nextS = pickPlannedWithLeg(boardS, QUAY_RAMSOY); if (nextS) reasonS='planned-leg'; }
-
-    // Plain planned as last resort
-    if (!nextR){
-      const fb = pickUpcomingBasic(boardR,1)[0];
-      if (fb){
-        nextR = { call: fb.call, depIso: fb.depIso, arrToTarget: null, depCallForStatus: fb.call, fallbackTarget: "Sandviksberget" };
-        reasonR = 'planned-plain';
-      }
-    }
-    if (!nextS){
-      const fb = pickUpcomingBasic(boardS,1)[0];
-      if (fb){
-        nextS = { call: fb.call, depIso: fb.depIso, arrToTarget: null, depCallForStatus: fb.call, fallbackTarget: "Ramsøy" };
-        reasonS = 'planned-plain';
-      }
-    }
-
-    depEl.innerHTML = '';
-
-    if (nextR){
-      //console.debug('[ENTUR] Ramsøy→Sandviksberget strategy:', reasonR, nextR);
-      appendDepartureLine({ item: nextR, stopId: stopR, title: "Fra Ramsøy → Sandviksberget", targetName: "Sandviksberget", isFallback: reasonR!=='strict' && reasonR!=='relaxed' });
-    } else {
-      depEl.appendChild(makeLine("Ingen avganger som stopper på Sandviksberget", stopR, "Fra Ramsøy → Sandviksberget"));
-    }
-
-    if (nextS){
-      //console.debug('[ENTUR] Sandviksberget→Ramsøy strategy:', reasonS, nextS);
-      appendDepartureLine({ item: nextS, stopId: stopS, title: "Fra Sandviksberget → Ramsøy", targetName: "Ramsøy", isFallback: reasonS!=='strict' && reasonS!=='relaxed' });
-    } else {
-      depEl.appendChild(makeLine("Ingen avganger som stopper på Ramsøy", stopS, "Fra Sandviksberget → Ramsøy"));
-    }
-
-    updEl.textContent = fmtUpdated(new Date());
-  }catch(e){
-    console.error(e);
-    depEl.textContent = "Kunne ikke hente data";
-    updEl.textContent = "";
-  }
-}
-function enturStopUrl(stopPlaceId){
-  return `https://entur.no/nearby-stop-place-detail?id=${encodeURIComponent(stopPlaceId)}`;
-}
-
-function makeLine(text, stopPlaceId, label){
-  const line = document.createElement('div');
-  line.style.display = 'flex';
-  line.style.alignItems = 'center';
-  line.style.justifyContent = 'space-between';
-  line.style.gap = '.5rem';
-  line.style.margin = '.4rem 0';
-
-  const left = document.createElement('span');
-  left.innerHTML = `<strong style="color:#a9b3bd;font-weight:600;margin-right:.3rem;">${label}:</strong> ${text || "Ingen avganger"}`;
-  line.appendChild(left);
-
-  if (stopPlaceId){
-    const a = document.createElement('a');
-    a.className = 'iconbtn';
-    a.href = enturStopUrl(stopPlaceId);
-    a.target = '_blank';
-    a.rel = 'noopener';
-    a.title = `Åpne i Entur – ${label}`;
-    a.innerHTML = ICON_PIN;
-    const act = document.createElement('div');
-    act.className = 'row-actions';
-    act.appendChild(a);
-    line.appendChild(act);
-  }
-  return line;
-}
-
-// støtte hvis noe i koden kaller feil casing:
-const makeline = makeLine;
-
-  updateEntur();
-  setInterval(updateEntur, 60_000);
-})();
-</script>
 <!-- Script for grafene -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
