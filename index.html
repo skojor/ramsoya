@@ -449,7 +449,7 @@
 
   <div class="page">
     <main class="stage" aria-live="polite">
-      <img id="cam" alt="Siste webkamerabilde fra Ramsøy" decoding="async" loading="eager" / fetchpriority="high">
+      <img id="cam" alt="Siste webkamerabilde fra Ramsøy" decoding="async" loading="eager" fetchpriority="high">
       <aside class="overlay" id="weatherOverlay" hidden></aside>
       <div class="status-pill ok" id="status"><span class="dot" aria-hidden="true"></span><span id="statusText">Laster…</span></div>
     </main>
@@ -898,34 +898,29 @@ function googleFlightUrl(f){
 
       function formatTime(isoString) {
           if (!isoString) return '—';
-          return new Intl.DateTimeFormat('nb-NO', {
+          const depTime = new Date(isoString);
+          const now = new Date();
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+          const depDate = new Date(depTime.getFullYear(), depTime.getMonth(), depTime.getDate());
+
+          const timeStr = new Intl.DateTimeFormat('nb-NO', {
               hour: '2-digit',
               minute: '2-digit',
               timeZone: 'Europe/Oslo'
-          }).format(new Date(isoString));
-      }
+          }).format(depTime);
 
-      function enturStopUrl(stopPlaceId){
-          return `https://entur.no/nearby-stop-place-detail?id=${encodeURIComponent(stopPlaceId)}`;
-      }
-
-      async function updateEntur(){
-          try {
-              updEl.textContent = "oppdaterer…";
-
-              const response = await fetch(API_URL + '?_=' + Date.now());
-              const result = await response.json();
-
-              if (result.success) {
-                  renderDepartures(result.data);
-                  updEl.textContent = `Oppdatert ${result.updated}`;
-              } else {
-                  throw new Error(result.error || 'Ukjent feil');
-              }
-          } catch (error) {
-              console.error('Entur backend error:', error);
-              depEl.innerHTML = '<div style="color: #ffb3b3;">Kunne ikke hente avganger</div>';
-              updEl.textContent = "feil ved oppdatering";
+          if (depDate.getTime() === today.getTime()) {
+              return timeStr;
+          } else if (depDate.getTime() === tomorrow.getTime()) {
+              return timeStr + ' <span class="badge-tomorrow">(i morgen)</span>';
+          } else {
+              const dayStr = new Intl.DateTimeFormat('nb-NO', {
+                  weekday: 'short',
+                  day: 'numeric',
+                  timeZone: 'Europe/Oslo'
+              }).format(depTime);
+              return timeStr + ' <span class="badge-tomorrow">(' + dayStr + ')</span>';
           }
       }
 
@@ -940,8 +935,73 @@ function googleFlightUrl(f){
           const html = departures.map(dep => {
               const actionBtn = `<a class="iconbtn" href="${stopPlaceUrl}" target="_blank" rel="noopener" title="Åpne i Entur">${ICON_PIN}</a>`;
               const realtimeBadge = dep.realtime ? ' <span style="background: #26c281; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">Live</span>' : '';
-              return `<div><strong>${formatTime(dep.time)}</strong>${realtimeBadge} ${dep.destination} <div class="row-actions">${actionBtn}</div></div>`;
+              const lineInfo = dep.line ? ` <span style="opacity: 0.8; font-size: 0.85rem;">${dep.line}</span>` : '';
+              return `<div><strong>${formatTime(dep.time)}</strong>${realtimeBadge}${lineInfo} ${dep.destination} <div class="row-actions">${actionBtn}</div></div>`;
           }).join('');
+
+          depEl.innerHTML = html;
+      }
+
+      async function updateEntur(){
+          try {
+              updEl.textContent = "oppdaterer…";
+
+              // Request bidirectional departures to match original site
+              const response = await fetch(API_URL + '?bidirectional=true&_=' + Date.now());
+              const result = await response.json();
+
+              if (result.success) {
+                  renderBidirectionalDepartures(result.data);
+                  updEl.textContent = `Oppdatert ${result.updated}`;
+              } else {
+                  throw new Error(result.error || 'Ukjent feil');
+              }
+          } catch (error) {
+              console.error('Entur backend error:', error);
+              depEl.innerHTML = '<div style="color: #ffb3b3;">Kunne ikke hente avganger</div>';
+              updEl.textContent = "feil ved oppdatering";
+          }
+      }
+
+      function renderBidirectionalDepartures(data) {
+          const { bidirectionalDepartures, stopRamsoyUrl, stopSandviksUrl } = data;
+
+          if (!bidirectionalDepartures || bidirectionalDepartures.length === 0) {
+              depEl.innerHTML = '<div>Ingen avganger funnet</div>';
+              return;
+          }
+
+          let html = '';
+
+          bidirectionalDepartures.forEach(item => {
+              const dep = item.departure;
+              const direction = item.direction;
+
+              // Determine which stop URL to use based on direction
+              const stopUrl = direction.includes('Ramsøy →') ? stopRamsoyUrl : stopSandviksUrl;
+              const actionBtn = `<a class="iconbtn" href="${stopUrl}" target="_blank" rel="noopener" title="Åpne i Entur – ${direction}">${ICON_PIN}</a>`;
+
+              // Format departure time
+              const depTimeFormatted = formatTime(dep.time);
+
+              // Format on-time status (including "I rute")
+              const onTimeStatus = dep.onTimeStatus ? `(${dep.onTimeStatus})` : '';
+
+              // Format arrival info
+              let arrivalInfo = '';
+              if (dep.arrivalTime) {
+                  const arrivalTimeFormatted = formatTime(dep.arrivalTime);
+                  // Extract destination from direction for arrival info
+                  const destination = direction.includes('Sandviksberget') ? 'Sandviksberget' : 'Ramsøy';
+                  arrivalInfo = ` • Ankomst ${destination} ${arrivalTimeFormatted}`;
+              }
+
+              // Build the complete line matching the expected format
+              html += `<div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin: 0.4rem 0px;">`;
+              html += `<span><strong style="color:#a9b3bd;font-weight:600;margin-right:.3rem;">${direction}:</strong> ${depTimeFormatted} – ${dep.destination} ${onTimeStatus}${arrivalInfo}</span>`;
+              html += `<div class="row-actions">${actionBtn}</div>`;
+              html += `</div>`;
+          });
 
           depEl.innerHTML = html;
       }
@@ -1063,7 +1123,6 @@ function googleFlightUrl(f){
           callbacks: { label: (ctx)=>`${ctx.dataset.label}: ${ctx.parsed.y?.toFixed?.(1) ?? '—'} °C` }
         }
       }
-    }
   });
 
   const windChart = new Chart(document.getElementById('windChart').getContext('2d'), {
