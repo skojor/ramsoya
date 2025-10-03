@@ -22,7 +22,6 @@ jobs:
           port: 22                     # ← endre hvis SSH kjører på en annen port
           script: |
             cd web
-            git pull || git clone https://github.com/<bruker>/<repo>.git .
             git checkout staging
             git pull
 
