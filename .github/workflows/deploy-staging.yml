@@ -16,8 +16,8 @@ jobs:
       - name: Deploy via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SERVER_USER }}
+          host: homer.skorstad.name
+          username: jskorstagh
           key: ${{ secrets.SSH_KEY }}
           port: 22
           source: "."
