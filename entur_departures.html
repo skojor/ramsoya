@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hurtigbåt - Neste avganger</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .updated {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        .departure-list {
+            display: grid;
+            gap: 12px;
+        }
+        .departure-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .departure-info {
+            flex: 1;
+        }
+        .departure-time {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #a9b3bd;
+        }
+        .departure-dest {
+            font-size: 0.95rem;
+            margin-top: 2px;
+        }
+        .realtime-badge {
+            background: #26c281;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-left: 8px;
+        }
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+        .icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .icon-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .icon-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+        .error, .loading {
+            text-align: center;
+            padding: 20px;
+            opacity: 0.8;
+        }
+        .error {
+            color: #ffb3b3;
+        }
+        @media (max-width: 640px) {
+            .container {
+                margin: 10px;
+                padding: 16px;
+            }
+            .departure-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            .actions {
+                align-self: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚢 Hurtigbåt</h1>
+            <div class="updated" id="updated">Laster...</div>
+        </div>
+        <div id="content">
+            <div class="loading">Henter avganger...</div>
+        </div>
+    </div>
+    <script>
+        const REFRESH_INTERVAL = 30000; // 30 seconds
+        const API_URL = 'entur_api.php';
+        const contentEl = document.getElementById('content');
+        const updatedEl = document.getElementById('updated');
+        const ICON_PIN = `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/></svg>`;
+
+        function formatTime(isoString) {
+            if (!isoString) return '—';
+            return new Intl.DateTimeFormat('nb-NO', {
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Europe/Oslo'
+            }).format(new Date(isoString));
+        }
+
+        function renderDepartures(data) {
+            const { departures, stopPlaceUrl } = data;
+            if (!departures || departures.length === 0) {
+                contentEl.innerHTML = '<div class="error">Ingen avganger å vise akkurat nå</div>';
+                return;
+            }
+            const html = `
+                <div class="departure-list">
+                    ${departures.map(dep => `
+                        <div class="departure-item">
+                            <div class="departure-info">
+                                <div class="departure-time">
+                                    ${formatTime(dep.time)}
+                                    ${dep.realtime ? '<span class="realtime-badge">Live</span>' : ''}
+                                </div>
+                                <div class="departure-dest">${dep.destination || '—'}</div>
+                            </div>
+                            <div class="actions">
+                                <a href="${stopPlaceUrl}"
+                                   target="_blank"
+                                   rel="noopener"
+                                   class="icon-btn"
+                                   title="Åpne i Entur">
+                                    ${ICON_PIN}
+                                </a>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            contentEl.innerHTML = html;
+        }
+
+        async function fetchDepartures() {
+            try {
+                const response = await fetch(API_URL + '?_=' + Date.now());
+                const result = await response.json();
+                if (result.success) {
+                    renderDepartures(result.data);
+                    updatedEl.textContent = `Oppdatert ${result.updated}`;
+                } else {
+                    throw new Error(result.error || 'Ukjent feil');
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                contentEl.innerHTML = `<div class="error">Kunne ikke hente avganger: ${error.message}</div>`;
+                updatedEl.textContent = 'Feil ved oppdatering';
+            }
+        }
+
+        fetchDepartures();
+        setInterval(fetchDepartures, REFRESH_INTERVAL);
+        window.addEventListener('focus', fetchDepartures);
+    </script>
+</body>
+</html>
+
