@@ -446,9 +446,9 @@ function fmt(val, suffix=''){
       const vr = fmtFpm(a.baro_rate ?? a.vert_rate);
       const gs = fmtKt(a.gs);
       const trk = fmtDeg(a.track);
-      const dist = (a._dist_nm!=null) ? (a._dist_nm<1 ? `${(a._dist_nm*1000/1.852|0)} m` : `${a._dist_nm.toFixed(1)} nm`) : '–';
+      const dist = (a.distance_nm!=null) ? (a.distance_nm<1 ? `${(a.distance_nm*1000/1.852|0)} m` : `${a.distance_nm.toFixed(1)} nm`) : '–';
       const seen = (a.seen!=null) ? `${a.seen.toFixed(1)} s` : '–';
-      const airline = deriveAirlineFromFlight(flight) || '–';
+      const airline = a.airline || '–';
       lines.push(`Flight: ${flight}`);
       lines.push(`Flyselskap: ${airline}`);
       lines.push(`ICAO: ${a.hex || '–'}`);
@@ -465,92 +465,30 @@ function fmt(val, suffix=''){
       return lines.join('\n');
     }
 
-
-    function haversineKm(a,b){ const R=6371; const dLat=(b.lat-a.lat)*Math.PI/180; const dLon=(b.lon-a.lon)*Math.PI/180; const la1=a.lat*Math.PI/180; const la2=b.lat*Math.PI/180; const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
-    const km2nm = km => km/1.852;
-    function fmtAlt(ft){ if(ft==null) return '—'; if(typeof ft==='string') return ft; return Math.round(ft).toLocaleString('no-NO')+' ft'; }
     const fmtGs = kt => kt==null?'—': Math.round(kt)+' kt';
     const fmtNm = nm => nm<1? (nm*1000/1.852|0)+' m' : nm.toFixed(1)+' nm';
     const fmtSeen = s => s==null?'—': s.toFixed(1)+' s';
     // Ikoner (inline SVG)
     const ICON_SEARCH = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4z"/></svg>`;
 
-    // Airline map (IATA/ICAO prefixes) – extend as needed
-    const AIRLINE_MAP = {
-      // IATA -> name
-      'SK': 'Scandinavian Airlines (SAS)',
-      'DY': 'Norwegian',
-      'WF': 'Widerøe',
-      'KL': 'KLM',
-      'LH': 'Lufthansa',
-      'BA': 'British Airways',
-      'FR': 'Ryanair',
-      'W6': 'Wizz Air',
-      'AF': 'Air France',
-      'AY': 'Finnair',
-      'BT': 'airBaltic',
-      'SU': 'Aeroflot',
-      'TK': 'Turkish Airlines',
-      'LX': 'SWISS',
-      'OS': 'Austrian',
-      'SN': 'Brussels Airlines',
-      'IB': 'Iberia',
-      'VY': 'Vueling',
-      'LO': 'LOT Polish Airlines',
-      'AZ': 'ITA Airways',
-      'EZY': 'easyJet', // ICAO-style code sometimes seen in callsign
-      'U2': 'easyJet',
-      'SAS': 'Scandinavian Airlines',
-      'NAX': 'Norwegian Air Shuttle',
-      'WIF': 'Widerøe',
-      'KLM': 'KLM',
-      'DLH': 'Lufthansa',
-      'BAW': 'British Airways',
-      'RYR': 'Ryanair',
-      'AFR': 'Air France',
-      'FIN': 'Finnair',
-      'BTI': 'airBaltic',
-      'THY': 'Turkish Airlines',
-      'SWR': 'SWISS',
-      'AUA': 'Austrian',
-      'IBE': 'Iberia',
-      'VLG': 'Vueling',
-      'LOT': 'LOT Polish Airlines',
-      'ITY': 'ITA Airways',
-      'NOZ': 'Norwegian'
-    };
-    function deriveAirlineFromFlight(flight){
-      if(!flight) return null;
-      const f = flight.trim().toUpperCase();
-      // Try 2-char IATA then 3-char ICAO
-      const two = f.slice(0,2);
-      const three = f.slice(0,3);
-      if (AIRLINE_MAP[two]) return AIRLINE_MAP[two];
-      if (AIRLINE_MAP[three]) return AIRLINE_MAP[three];
-      return null;
-    }
+    function fmtAlt(ft){ if(ft==null) return '—'; if(typeof ft==='string') return ft; return Math.round(ft).toLocaleString('no-NO')+' ft'; }
+
     function fr24FlightUrl(flight){
       return 'https://www.flightradar24.com/64.32,10.41/8';
     }
 
+    function googleFlightUrl(flight){
+      return `https://www.google.com/search?q=${encodeURIComponent(flight + ' flight')}`;
+    }
 
-    
+    // Fetch aircraft data from server-side proxy
     async function fetchAircraft(){
-      const candidates = [
-        '/adsb/tar1090/data/aircraft.json'
-      ];
-      let lastErr;
-      for (const url of candidates){
-        try{
-          const res = await fetch(url, { cache: 'no-store' });
-          if(!res.ok){ lastErr = new Error('HTTP '+res.status+' at '+url); continue; }
-          const json = await res.json();
-          if (json && (Array.isArray(json.aircraft) || typeof json.now === 'number')){
-            return { json, url };
-          }
-        }catch(e){ lastErr = e; }
-      }
-      throw lastErr || new Error('Ingen aircraft.json funnet');
+      const url = `/adsb_proxy.php?lat=${ORIGIN.lat}&lon=${ORIGIN.lon}&radius=${MAX_DIST_KM}&max_age=${MAX_SEEN_S}`;
+      const res = await fetch(url, { cache: 'no-store' });
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Server error');
+      return data;
     }
 
     function makeHeadingCell(track){ const td=document.createElement('td'); const n=Number(track); if(Number.isFinite(n)){ let hdg=((n%360)+360)%360;
@@ -565,12 +503,12 @@ function fmt(val, suffix=''){
       tr.addEventListener('mouseleave', ()=>{ const t=$tooltip(); t.style.visibility=''; t.style.display='none'; });
       const flight=(a.flight||'').trim() || (a.t||a.hex||'—');
       const tdF=document.createElement('td'); tdF.textContent=flight; tr.appendChild(tdF);
-      const airline = deriveAirlineFromFlight(flight) || '—';
+      const airline = a.airline || '—';
       const tdAir=document.createElement('td'); tdAir.textContent=airline; tr.appendChild(tdAir);
       const tdAlt=document.createElement('td'); tdAlt.textContent=fmtAlt(a.alt_baro); tr.appendChild(tdAlt);
       const tdSpd=document.createElement('td'); tdSpd.textContent=fmtGs(a.gs); tr.appendChild(tdSpd);
       tr.appendChild(makeHeadingCell(a.track));
-      const tdDist=document.createElement('td'); tdDist.textContent= a._dist_nm!=null ? fmtNm(a._dist_nm) : '—'; tr.appendChild(tdDist);
+      const tdDist=document.createElement('td'); tdDist.textContent= a.distance_nm!=null ? fmtNm(a.distance_nm) : '—'; tr.appendChild(tdDist);
       const tdSeen=document.createElement('td'); tdSeen.textContent=fmtSeen(a.seen); tr.appendChild(tdSeen);
       const tdAct=document.createElement('td'); tdAct.className='row-actions';
       const btn = document.createElement('a'); btn.className='iconbtn'; btn.href=fr24FlightUrl(flight); btn.target='_blank'; btn.rel='noopener'; btn.title='Åpne i Flightradar24'; btn.innerHTML=ICON_SEARCH; btn.addEventListener('click', ev=>ev.stopPropagation()); tdAct.appendChild(btn); tr.appendChild(tdAct);
@@ -586,38 +524,25 @@ function fmt(val, suffix=''){
     async function tick(){
       try{
         $error().hidden=true;
-        const { json:data, url:activeUrl } = await fetchAircraft();
-        const now=Date.now()/1000;
-        const all = Array.isArray(data.aircraft) ? data.aircraft : [];
-        const withPos = all.filter(a=>a.lat!=null && a.lon!=null);
-        const fresh = withPos.filter(a=> (a.seen!=null? a.seen : (now-(a.seen_pos||now))) <= MAX_SEEN_S);
-        let list = fresh
-          .map(a=>{ a._dist_km=haversineKm(ORIGIN,{lat:a.lat,lon:a.lon}); a._dist_nm=km2nm(a._dist_km); return a; })
-          .filter(a=> a._dist_km <= MAX_DIST_KM)
-          .sort((x,y)=> x._dist_km - y._dist_km);
+        const data = await fetchAircraft();
+        const list = data.aircraft || [];
 
         const hasRows = list.length>0;
         $wrap().hidden = !hasRows;
         $empty().hidden = hasRows;
         render(list);
         $count().textContent = list.length;
-        $updated().textContent = `oppdatert ${fmtUpdated()} • totalt: ${all.length} pos:${withPos.length} ferske:${fresh.length}`;
+        $updated().textContent = `oppdatert ${fmtUpdated()}`;
         }catch(err){
-        /*console.error('ADS-B feil:', err);
+        console.error('ADS-B feil:', err);
         $error().hidden=false;
-        $updated().textContent='feil ved oppdatering';*/
+        $updated().textContent='feil ved oppdatering';
       }
     }
 
-
     tick();
-    setInterval(tick, 5000);
+    setInterval(tick, 20000); // Update every 20 seconds
   })();
-
-function googleFlightUrl(f){
-  const q = encodeURIComponent((f||'').trim());
-  return `https://www.google.com/search?q=${q}`;
-}
   </script>
 
   <!-- Flo & fjære (uendret funksjonelt) -->
