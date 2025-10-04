@@ -109,7 +109,7 @@ function derive_airline($flight) {
 
 try {
     // Fetch aircraft data from tar1090
-    $aircraft_url = 'http://localhost/adsb/tar1090/data/aircraft.json';
+    $aircraft_url = 'adsb/tar1090/data/aircraft.json';
     $context = stream_context_create([
         'http' => [
             'timeout' => 10,
@@ -148,10 +148,9 @@ try {
         if ($distance_km > $radius_km) {
             continue;
         }
-
         // Enrich aircraft data
         $enriched_aircraft = $aircraft;
-            $enriched_aircraft['distance_km'] = round((float)$distance_km, 1);
+        $enriched_aircraft['distance_km'] = round((float)$distance_km, 1);
         $enriched_aircraft['distance_nm'] = round((float)km_to_nm($distance_km), 1);
 
         // Add airline info if flight code exists
