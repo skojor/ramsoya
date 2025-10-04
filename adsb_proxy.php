@@ -150,8 +150,8 @@ try {
         }
         // Enrich aircraft data
         $enriched_aircraft = $aircraft;
-        $enriched_aircraft['distance_km'] = round((float)$distance_km, 1);
-        $enriched_aircraft['distance_nm'] = round((float)km_to_nm($distance_km), 1);
+        $enriched_aircraft['distance_km'] = round($distance_km, 1);
+        $enriched_aircraft['distance_nm'] = round(km_to_nm($distance_km), 1);
 
         // Add airline info if flight code exists
         if (isset($aircraft['flight']) && !empty(trim($aircraft['flight']))) {
