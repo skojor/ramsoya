@@ -13,20 +13,51 @@ $center_lon = isset($_GET['lon']) ? floatval($_GET['lon']) : $default_lon;
 $radius_km = isset($_GET['radius']) ? floatval($_GET['radius']) : $default_radius;
 $max_age = isset($_GET['max_age']) ? intval($_GET['max_age']) : 60; // seconds
 
-// Airline mapping
+// Airline mapping - comprehensive list from original JavaScript code
 $airline_map = [
-    'SAS' => 'SAS',
-    'SK' => 'SAS',
+    // IATA codes
+    'SK' => 'Scandinavian Airlines (SAS)',
     'DY' => 'Norwegian',
-    'NAX' => 'Norwegian',
     'WF' => 'Widerøe',
-    'KF' => 'Air France',
-    'AF' => 'Air France',
+    'KL' => 'KLM',
     'LH' => 'Lufthansa',
     'BA' => 'British Airways',
-    'EK' => 'Emirates',
-    'QR' => 'Qatar Airways',
-    'TK' => 'Turkish Airlines'
+    'FR' => 'Ryanair',
+    'W6' => 'Wizz Air',
+    'AF' => 'Air France',
+    'AY' => 'Finnair',
+    'BT' => 'airBaltic',
+    'SU' => 'Aeroflot',
+    'TK' => 'Turkish Airlines',
+    'LX' => 'SWISS',
+    'OS' => 'Austrian',
+    'SN' => 'Brussels Airlines',
+    'IB' => 'Iberia',
+    'VY' => 'Vueling',
+    'LO' => 'LOT Polish Airlines',
+    'AZ' => 'ITA Airways',
+    'EZY' => 'easyJet', // ICAO-style code sometimes seen in callsign
+    'U2' => 'easyJet',
+
+    // ICAO codes
+    'SAS' => 'Scandinavian Airlines',
+    'NAX' => 'Norwegian Air Shuttle',
+    'WIF' => 'Widerøe',
+    'KLM' => 'KLM',
+    'DLH' => 'Lufthansa',
+    'BAW' => 'British Airways',
+    'RYR' => 'Ryanair',
+    'AFR' => 'Air France',
+    'FIN' => 'Finnair',
+    'BTI' => 'airBaltic',
+    'THY' => 'Turkish Airlines',
+    'SWR' => 'SWISS',
+    'AUA' => 'Austrian',
+    'IBE' => 'Iberia',
+    'VLG' => 'Vueling',
+    'LOT' => 'LOT Polish Airlines',
+    'ITY' => 'ITA Airways',
+    'NOZ' => 'Norwegian'
 ];
 
 /**
