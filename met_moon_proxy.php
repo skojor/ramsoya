@@ -49,70 +49,70 @@ $ch = curl_init($upstreamUrl);
 curl_setopt_array($ch, [
   CURLOPT_RETURNTRANSFER => true,
   CURLOPT_FOLLOWLOCATION => true,
-  CURLOPT_SSL_VERIFYPEER => true,
-  CURLOPT_CONNECTTIMEOUT => 6,
-  CURLOPT_TIMEOUT        => 12,
-  CURLOPT_HTTPHEADER     => [
+  CURLOPT_TIMEOUT => 10,
+  CURLOPT_USERAGENT => USER_AGENT,
+  CURLOPT_HTTPHEADER => [
     'Accept: application/json',
-    // MET: identify yourself — app + contact
-    'User-Agent: ' . APP_NAME . ' (' . CONTACT . ')'
+    'Accept-Encoding: gzip, deflate'
   ],
-  CURLOPT_HEADER => true, // hent både headere og body for videresending
+  CURLOPT_ENCODING => '',
+  CURLOPT_SSL_VERIFYPEER => true,
+  CURLOPT_SSL_VERIFYHOST => 2,
+  CURLOPT_HEADER => true,
+  CURLOPT_HEADERFUNCTION => function($curl, $header) {
+    // Skip denne - vi håndterer headere manuelt
+    return strlen($header);
+  }
 ]);
 
-$resp = curl_exec($ch);
-if ($resp === false) {
-  http_response_code(502);
-  header('Content-Type: application/json; charset=utf-8');
-  header('Access-Control-Allow-Origin: *');
-  echo json_encode(['error' => 'Upstream fetch failed', 'detail' => curl_error($ch)], JSON_UNESCAPED_UNICODE);
+$response = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+
+if ($response === false) {
   curl_close($ch);
+  http_response_code(502);
+  header('Content-Type: application/json');
+  header('Access-Control-Allow-Origin: *');
+  echo json_encode(['error' => 'Failed to fetch from MET API', 'code' => 502]);
   exit;
 }
 
-$headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-$status     = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-$headersRaw = substr($resp, 0, $headerSize);
-$body       = substr($resp, $headerSize);
+$headers = substr($response, 0, $headerSize);
+$body = substr($response, $headerSize);
 curl_close($ch);
 
-// Forbered headere å videresende (filtrér/normaliser)
-$outHeaders = [];
-$contentType = 'application/json; charset=utf-8';
-foreach (explode("\r\n", $headersRaw) as $line) {
-  if (stripos($line, 'Content-Type:') === 0) { $contentType = trim(substr($line, 13)); }
-  if (stripos($line, 'Cache-Control:') === 0) { $outHeaders[] = $line; }
-  if (stripos($line, 'ETag:') === 0)          { $outHeaders[] = $line; }
-  if (stripos($line, 'Expires:') === 0)       { $outHeaders[] = $line; }
-  if (stripos($line, 'Last-Modified:') === 0) { $outHeaders[] = $line; }
+// Sjekk HTTP-status
+if ($httpCode >= 400) {
+  http_response_code($httpCode);
+  header('Content-Type: application/json');
+  header('Access-Control-Allow-Origin: *');
+  echo json_encode(['error' => 'MET API returned error', 'code' => $httpCode]);
+  exit;
 }
 
-// Svar til klient
-http_response_code($status);
-header('Access-Control-Allow-Origin: *');
-header('Content-Type: ' . $contentType);
-foreach ($outHeaders as $h) { header($h, false); }
-
-// Legg på egen cache hvis upstream ikke ga noe
-$hasCacheHdr = false;
-foreach ($outHeaders as $h) { if (stripos($h,'Cache-Control:')===0) { $hasCacheHdr = true; break; } }
-if (!$hasCacheHdr) {
-  header('Cache-Control: public, max-age=' . CACHE_TTL);
-}
-
-// Skriv cache bare når 200 OK og valid JSON
-if ($status === 200) {
-  // valider at det er JSON (best-effort)
-  json_decode($body);
-  if (json_last_error() === JSON_ERROR_NONE) {
-    @file_put_contents($cacheFile, $body);
-    @file_put_contents($metaFile, json_encode([
-      'Content-Type: ' . $contentType,
-      'Cache-Control: public, max-age=' . CACHE_TTL
-    ]));
+// Parse og lagre relevante headere
+$responseHeaders = [];
+$headerLines = explode("\r\n", $headers);
+foreach ($headerLines as $line) {
+  if (stripos($line, 'content-type:') === 0 ||
+      stripos($line, 'cache-control:') === 0 ||
+      stripos($line, 'expires:') === 0 ||
+      stripos($line, 'last-modified:') === 0) {
+    $responseHeaders[] = trim($line);
   }
 }
 
+// Lagre til cache
+@file_put_contents($cacheFile, $body);
+@file_put_contents($metaFile, json_encode($responseHeaders));
+
+// Send response
+header('Access-Control-Allow-Origin: *');
+foreach ($responseHeaders as $h) {
+  header($h, false);
+}
 header('X-Cache: MISS');
+
 echo $body;
 
