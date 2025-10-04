@@ -385,11 +385,11 @@
 })();
 </script>
 <script>window.WIND_FLIP = true;</script>
-<link rel="preconnect" href="https://ramsoy.skorstad.name" crossorigin>
+<link rel="preconnect" href="https://staging.skorstad.name" crossorigin>
 <link rel="preconnect" href="https://vannstand.kartverket.no">
 <link rel="preconnect" href="https://www.marinetraffic.com">
 <link rel="preconnect" href="https://www.flightradar24.com">
-<link rel="dns-prefetch" href="//ramsoy.skorstad.name">
+<link rel="dns-prefetch" href="//staging.skorstad.name">
 <link rel="dns-prefetch" href="//vannstand.kartverket.no">
 <link rel="dns-prefetch" href="//www.marinetraffic.com">
 <link rel="dns-prefetch" href="//www.flightradar24.com">
@@ -564,13 +564,13 @@
   // --- Hjelpere ---
   const norm360 = d => ((d % 360) + 360) % 360;
   const WIND_ARROW_MODE = 'to';
-  const IMG_URL = "https://ramsoy.skorstad.name/siste.jpg";
-  const WEATHER_URL = "https://ramsoy.skorstad.name/getweather_overlay.php";
+  const IMG_URL = "siste.jpg";
+  const WEATHER_URL = "getweather_overlay.php";
   const IMAGE_INTERVAL_MS = 20_000;
   const WEATHER_INTERVAL_MS = 30_000;
   const MOON_URL = "/met_moon_proxy.php?lat=64.33&lon=10.41";
   const FORECAST_URL = "/met_forecast_proxy.php?lat=64.32785&lon=10.41549";
-  const ICON_BASE = "https://ramsoy.skorstad.name/ikoner/yr/";
+  const ICON_BASE = "ikoner/yr/";
   const YR_SYMBOL_MAP = { clearsky_day:'01d', clearsky_night:'01n', clearsky_polartwilight:'01m', fair_day:'02d', fair_night:'02n', fair_polartwilight:'02m', partlycloudy_day:'03d', partlycloudy_night:'03n', partlycloudy_polartwilight:'03m', cloudy:'04', lightrainshowers_day:'40d', lightrainshowers_night:'40n', lightrainshowers_polartwilight:'40m', rainshowers_day:'05d', rainshowers_night:'05n', rainshowers_polartwilight:'05m', heavyrainshowers_day:'41d', heavyrainshowers_night:'41n', heavyrainshowers_polartwilight:'41m', lightrainshowersandthunder_day:'24d', lightrainshowersandthunder_night:'24n', lightrainshowersandthunder_polartwilight:'24m', rainshowersandthunder_day:'06d', rainshowersandthunder_night:'06n', rainshowersandthunder_polartwilight:'06m', heavyrainshowersandthunder_day:'25d', heavyrainshowersandthunder_night:'25n', heavyrainshowersandthunder_polartwilight:'25m', lightsleetshowers_day:'42d', lightsleetshowers_night:'42n', lightsleetshowers_polartwilight:'42m', sleetshowers_day:'07d', sleetshowers_night:'07n', sleetshowers_polartwilight:'07m', heavysleetshowers_day:'43d', heavysleetshowers_night:'43n', heavysleetshowers_polartwilight:'43m', lightsleetshowersandthunder_day:'26d', lightsleetshowersandthunder_night:'26n', lightsleetshowersandthunder_polartwilight:'26m', sleetshowersandthunder_day:'20d', sleetshowersandthunder_night:'20n', sleetshowersandthunder_polartwilight:'20m', heavysleetshowersandthunder_day:'27d', heavysleetshowersandthunder_night:'27n', heavysleetshowersandthunder_polartwilight:'27m', lightsnowshowers_day:'44d', lightsnowshowers_night:'44n', lightsnowshowers_polartwilight:'44m', snowshowers_day:'08d', snowshowers_night:'08n', snowshowers_polartwilight:'08m', heavysnowshowers_day:'45d', heavysnowshowers_night:'45n', heavysnowshowers_polartwilight:'45m', lightsnowshowersandthunder_day:'28d', lightsnowshowersandthunder_night:'28n', lightsnowshowersandthunder_polartwilight:'28m', snowshowersandthunder_day:'21d', snowshowersandthunder_night:'21n', snowshowersandthunder_polartwilight:'21m', heavysnowshowersandthunder_day:'29d', heavysnowshowersandthunder_night:'29n', heavysnowshowersandthunder_polartwilight:'29m', lightrain:'46', rain:'09', heavyrain:'10', lightrainandthunder:'30', rainandthunder:'22', heavyrainandthunder:'11', lightsleet:'47', sleet:'12', heavysleet:'48', lightsleetandthunder:'31', sleetandthunder:'23', heavysleetandthunder:'32', lightsnow:'49', snow:'13', heavysnow:'50', lightsnowandthunder:'33', snowandthunder:'14', heavysnowandthunder:'34', fog:'15' };
   const iconDefault = `${ICON_BASE}04.svg`;
 
