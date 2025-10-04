@@ -76,7 +76,38 @@ $headersRaw = substr($resp, 0, $headerSize);
 $body       = substr($resp, $headerSize);
 curl_close($ch);
 
-// Forbered headere å videresende (filtrér/normaliser)
+if ($status === 200) {
+  $moonData = json_decode($body, true);
+  if (json_last_error() === JSON_ERROR_NONE && $moonData) {
+    // Extract and process moon phase data
+    $moonphase = deepFindMoonphase($moonData);
+    if ($moonphase !== null && is_numeric($moonphase)) {
+      // Normalize degree to 0-360 range
+      $degree = fmod(fmod(floatval($moonphase), 360) + 360, 360);
+
+      // Calculate additional moon data
+      $phaseName = getPhaseName($degree);
+      $illumination = getIlluminationFraction($degree);
+      $svg = generateMoonSVG($degree);
+
+      // Create enhanced response with processed data
+      $enhancedData = [
+        'original' => $moonData,
+        'processed' => [
+          'degree' => round($degree, 2),
+          'phaseName' => $phaseName,
+          'illumination' => round($illumination * 100),
+          'svg' => $svg,
+          'text' => $phaseName . ' • ' . round($illumination * 100) . '%'
+        ]
+      ];
+
+      $body = json_encode($enhancedData, JSON_UNESCAPED_UNICODE);
+    }
+  }
+}
+
+// Forbered headere å videresende (filtrer/normaliser)
 $outHeaders = [];
 $contentType = 'application/json; charset=utf-8';
 foreach (explode("\r\n", $headersRaw) as $line) {
@@ -116,3 +147,126 @@ if ($status === 200) {
 header('X-Cache: MISS');
 echo $body;
 
+// Moon phase processing functions
+function deepFindMoonphase($obj) {
+  if (!is_array($obj) && !is_object($obj)) {
+    return null;
+  }
+
+  $array = is_object($obj) ? get_object_vars($obj) : $obj;
+
+  if (isset($array['moonphase'])) {
+    $mp = $array['moonphase'];
+    if (is_array($mp) && isset($mp['value'])) {
+      return floatval($mp['value']);
+    }
+    if (is_numeric($mp)) {
+      return floatval($mp);
+    }
+  }
+
+  foreach ($array as $value) {
+    if (is_array($value) || is_object($value)) {
+      $found = deepFindMoonphase($value);
+      if ($found !== null && is_numeric($found)) {
+        return $found;
+      }
+    }
+  }
+
+  return null;
+}
+
+function getPhaseName($degree) {
+  $d = fmod($degree + 360, 360);
+
+  if ($d < 10 || $d >= 350) return "Nymåne";
+  if (abs($d - 90) < 10) return "Første kvarter";
+  if (abs($d - 180) < 10) return "Fullmåne";
+  if (abs($d - 270) < 10) return "Siste kvarter";
+
+  return $d < 180 ? "Voksende" : "Minkende";
+}
+
+function getIlluminationFraction($degree) {
+  return (1 - cos(deg2rad($degree))) / 2;
+}
+
+function generateMoonSVG($degree) {
+  $size = 120;
+  $r = $size / 2;
+  $cx = $r;
+  $cy = $r;
+  $phi = deg2rad($degree);
+  $rx = abs(cos($phi)) * $r;
+  $N = 64;
+
+  $points = [];
+
+  if ($degree <= 180) {
+    // Waxing phase
+    $points = array_merge($points, sampleCircle(-M_PI/2, M_PI/2, $cx, $cy, $r, $N/2));
+    if ($degree <= 90) {
+      $points = array_merge($points, sampleEllipse(M_PI/2, -M_PI/2, $cx, $cy, $rx, $r, $N/2, 'right'));
+    } else {
+      $points = array_merge($points, sampleEllipse(M_PI/2, -M_PI/2, $cx, $cy, $rx, $r, $N/2, 'left'));
+    }
+  } else {
+    // Waning phase
+    $points = array_merge($points, sampleCircle(M_PI/2, 3*M_PI/2, $cx, $cy, $r, $N/2));
+    if ($degree <= 270) {
+      $points = array_merge($points, sampleEllipse(-M_PI/2, M_PI/2, $cx, $cy, $rx, $r, $N/2, 'right'));
+    } else {
+      $points = array_merge($points, sampleEllipse(-M_PI/2, M_PI/2, $cx, $cy, $rx, $r, $N/2, 'left'));
+    }
+  }
+
+  $pathData = pointsToPath($points);
+
+  // SVG components
+  $defs = '<defs><filter id="moonGlow" x="-50%" y="-50%" width="200%" height="200%">' .
+          '<feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="b1"/>' .
+          '<feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>' .
+          '</filter></defs>';
+
+  $background = '<circle cx="' . $cx . '" cy="' . $cy . '" r="' . $r . '" fill="#1e2228"/>';
+  $litPortion = '<g filter="url(#moonGlow)"><path d="' . $pathData . '" fill="#ffffff"/></g>';
+  $rim = '<circle cx="' . $cx . '" cy="' . $cy . '" r="' . ($r - 0.6) . '" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>';
+
+  return $defs . $background . $litPortion . $rim;
+}
+
+function sampleCircle($from, $to, $cx, $cy, $r, $n) {
+  $points = [];
+  for ($i = 0; $i <= $n; $i++) {
+    $t = $from + ($to - $from) * ($i / $n);
+    $points[] = [$cx + $r * cos($t), $cy + $r * sin($t)];
+  }
+  return $points;
+}
+
+function sampleEllipse($from, $to, $cx, $cy, $rx, $ry, $n, $side) {
+  $points = [];
+  for ($i = 0; $i <= $n; $i++) {
+    $t = $from + ($to - $from) * ($i / $n);
+    if ($side === 'right') {
+      $points[] = [$cx + $rx * cos($t), $cy + $ry * sin($t)];
+    } else {
+      $points[] = [$cx - $rx * cos($t), $cy + $ry * sin($t)];
+    }
+  }
+  return $points;
+}
+
+function pointsToPath($points) {
+  if (empty($points)) return '';
+
+  $path = 'M' . round($points[0][0], 3) . ',' . round($points[0][1], 3);
+  for ($i = 1; $i < count($points); $i++) {
+    $path .= 'L' . round($points[$i][0], 3) . ',' . round($points[$i][1], 3);
+  }
+  $path .= 'Z';
+
+  return $path;
+}
+?>

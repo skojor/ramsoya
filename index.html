@@ -484,8 +484,7 @@
       <!-- NB: Ikke egen actions-linje her lenger; knapper ligger per linje -->
     </div>
   </div>
-</section>
-</div>
+</section></div>
     <!-- AIS-seksjon -->
     <section id="ais-section" aria-labelledby="ais-heading">
       <div class="ais-card">
@@ -606,11 +605,30 @@
   async function fetchWeather(){ try{ const res=await fetch(bust(WEATHER_URL), { headers:{"Accept":"application/json"}, cache:"no-cache" }); const text=await res.text(); let json; try{ json=JSON.parse(text);}catch{ const cleaned=text.trim().replace(/^[\uFEFF]/, "").replace(/<\/?pre[^>]*>/gi, ""); json=JSON.parse(cleaned);} renderWeather(json); lastWeatherTs=Date.now(); updateStatus(); }catch(e){ console.error("Værfeil:", e); } }
 
   // --- Måne ---
-  function phaseName(deg){ const d=((deg%360)+360)%360; if(d<10||d>=350) return "Nymåne"; if(Math.abs(d-90)<10) return "Første kvarter"; if(Math.abs(d-180)<10) return "Fullmåne"; if(Math.abs(d-270)<10) return "Siste kvarter"; return d<180?"Voksende":"Minkende"; }
-  function illumFrac(deg){ return (1 - Math.cos((deg*Math.PI)/180)) / 2; }
-  function renderMoonSVG(deg){ const size=120,r=size/2,cx=r,cy=r,phi=(deg*Math.PI)/180; const rx=Math.abs(Math.cos(phi))*r; const N=64; const sample=(from,to,fn)=>{const pts=[]; for(let i=0;i<=N;i++){ const t=from+(to-from)*(i/N); pts.push(fn(t)); } return pts;}; const circle=t=>[cx+r*Math.cos(t), cy+r*Math.sin(t)]; const eRight=t=>[cx+rx*Math.cos(t), cy+r*Math.sin(t)]; const eLeft=t=>[cx-rx*Math.cos(t), cy+r*Math.sin(t)]; let pts=[]; if (deg<=180){ pts=pts.concat(sample(-Math.PI/2, Math.PI/2, circle)); if (deg<=90) pts=pts.concat(sample(Math.PI/2, -Math.PI/2, eRight)); else pts=pts.concat(sample(Math.PI/2, -Math.PI/2, eLeft)); } else { pts=pts.concat(sample(Math.PI/2, 3*Math.PI/2, circle)); if (deg<=270) pts=pts.concat(sample(-Math.PI/2, Math.PI/2, eRight)); else pts=pts.concat(sample(-Math.PI/2, Math.PI/2, eLeft)); } const d=["M", pts[0][0].toFixed(3), pts[0][1].toFixed(3)].concat(pts.slice(1).flatMap(([x,y])=>["L", x.toFixed(3), y.toFixed(3)])).concat(["Z"]).join(" "); const defs=`<defs><filter id="moonGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="b1"/><feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`; const bg=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="#1e2228"/>`; const lit=`<g filter="url(#moonGlow)"><path d="${d}" fill="#ffffff"/></g>`; const rim=`<circle cx="${cx}" cy="${cy}" r="${r-0.6}" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>`; moonSvg.innerHTML = defs+bg+lit+rim; moonSvg.setAttribute("viewBox", `0 0 ${size} ${size}`); }
-  function deepFindMoonphase(obj){ if(!obj||typeof obj!=="object") return null; if("moonphase" in obj){ const mp=obj.moonphase; if(mp&&typeof mp==="object"&&"value" in mp) return Number(mp.value); if(typeof mp==="number") return mp; } for(const k of Object.keys(obj)){ const v=obj[k]; const found=typeof v==="object"?deepFindMoonphase(v):null; if(found!=null&&!Number.isNaN(found)) return found; } return null; }
-  async function fetchMoon(){ try{ const res=await fetch(MOON_URL, { cache:"no-cache" }); const data=await res.json(); let deg=deepFindMoonphase(data); if (deg==null||!Number.isFinite(deg)) throw new Error("Fant ikke moonphase"); deg=((deg%360)+360)%360; const illum=illumFrac(deg); renderMoonSVG(deg); moonText.textContent = `${phaseName(deg)} • ${(illum*100).toFixed(0)}%`; }catch(err){ console.error("Moon API-feil:", err); moonText.textContent = "Kunne ikke hente månefasen nå."; renderMoonSVG(0);} }
+  // Simplified client-side moon handling - backend now does the heavy lifting
+  async function fetchMoon(){
+    try{
+      const res = await fetch(MOON_URL, { cache:"no-cache" });
+      const data = await res.json();
+
+      // Use pre-calculated values from enhanced backend proxy
+      if (data.processed) {
+        moonSvg.innerHTML = data.processed.svg;
+        moonSvg.setAttribute("viewBox", "0 0 120 120");
+        moonText.textContent = data.processed.text;
+      } else {
+        // Minimal fallback for unexpected response format
+        moonText.textContent = "Kunne ikke behandle månedata";
+        console.warn("Moon proxy returned unexpected format:", data);
+      }
+    } catch(err) {
+      console.error("Moon API-feil:", err);
+      moonText.textContent = "Kunne ikke hente månefasen nå.";
+      // Simple fallback moon display
+      moonSvg.innerHTML = '<circle cx="60" cy="60" r="60" fill="#1e2228"/><circle cx="60" cy="60" r="59.4" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>';
+      moonSvg.setAttribute("viewBox", "0 0 120 120");
+    }
+  }
 
   // --- Time-for-time ---
   function iconForSymbol(symbol_code){ if(!symbol_code) return null; const id = YR_SYMBOL_MAP[symbol_code]; return id ? `${ICON_BASE}${id}.svg` : iconDefault; }
@@ -924,46 +942,9 @@ function googleFlightUrl(f){
           }
       }
 
-      function renderDepartures(data) {
-          const { departures, stopPlaceUrl } = data;
-
-          if (!departures || departures.length === 0) {
-              depEl.innerHTML = '<div>Ingen avganger funnet</div>';
-              return;
-          }
-
-          const html = departures.map(dep => {
-              const actionBtn = `<a class="iconbtn" href="${stopPlaceUrl}" target="_blank" rel="noopener" title="Åpne i Entur">${ICON_PIN}</a>`;
-              const realtimeBadge = dep.realtime ? ' <span style="background: #26c281; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">Live</span>' : '';
-              const lineInfo = dep.line ? ` <span style="opacity: 0.8; font-size: 0.85rem;">${dep.line}</span>` : '';
-              return `<div><strong>${formatTime(dep.time)}</strong>${realtimeBadge}${lineInfo} ${dep.destination} <div class="row-actions">${actionBtn}</div></div>`;
-          }).join('');
-
-          depEl.innerHTML = html;
-      }
-
-      async function updateEntur(){
-          try {
-              updEl.textContent = "oppdaterer…";
-
-              // Request bidirectional departures to match original site
-              const response = await fetch(API_URL + '?bidirectional=true&_=' + Date.now());
-              const result = await response.json();
-
-              if (result.success) {
-                  renderBidirectionalDepartures(result.data);
-                  updEl.textContent = `Oppdatert ${result.updated}`;
-              } else {
-                  throw new Error(result.error || 'Ukjent feil');
-              }
-          } catch (error) {
-              console.error('Entur backend error:', error);
-              depEl.innerHTML = '<div style="color: #ffb3b3;">Kunne ikke hente avganger</div>';
-              updEl.textContent = "feil ved oppdatering";
-          }
-      }
-
       function renderBidirectionalDepartures(data) {
+          console.log('Rendering Entur departures:', data);
+
           const { bidirectionalDepartures, stopRamsoyUrl, stopSandviksUrl } = data;
 
           if (!bidirectionalDepartures || bidirectionalDepartures.length === 0) {
@@ -977,36 +958,60 @@ function googleFlightUrl(f){
               const dep = item.departure;
               const direction = item.direction;
 
-              // Determine which stop URL to use based on direction
-              const stopUrl = direction.includes('Ramsøy →') ? stopRamsoyUrl : stopSandviksUrl;
+              // Fix: Handle both "Ramsøy" and "Ramsy" (typo in API response)
+              const isFromRamsoy = direction.includes('Ramsy →') || direction.includes('Ramsøy →');
+              const stopUrl = isFromRamsoy ? stopRamsoyUrl : stopSandviksUrl;
               const actionBtn = `<a class="iconbtn" href="${stopUrl}" target="_blank" rel="noopener" title="Åpne i Entur – ${direction}">${ICON_PIN}</a>`;
 
               // Format departure time
               const depTimeFormatted = formatTime(dep.time);
 
               // Format on-time status (including "I rute")
-              const onTimeStatus = dep.onTimeStatus ? `(${dep.onTimeStatus})` : '';
-
-              // Format arrival info
-              let arrivalInfo = '';
-              if (dep.arrivalTime) {
-                  const arrivalTimeFormatted = formatTime(dep.arrivalTime);
-                  // Extract destination from direction for arrival info
-                  const destination = direction.includes('Sandviksberget') ? 'Sandviksberget' : 'Ramsøy';
-                  arrivalInfo = ` • Ankomst ${destination} ${arrivalTimeFormatted}`;
-              }
+              const onTimeStatus = dep.onTimeStatus ? ` (${dep.onTimeStatus})` : '';
 
               // Build the complete line matching the expected format
               html += `<div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin: 0.4rem 0px;">`;
-              html += `<span><strong style="color:#a9b3bd;font-weight:600;margin-right:.3rem;">${direction}:</strong> ${depTimeFormatted} – ${dep.destination} ${onTimeStatus}${arrivalInfo}</span>`;
+              html += `<span><strong style="color:#a9b3bd;font-weight:600;margin-right:.3rem;">${direction}:</strong> ${depTimeFormatted}${onTimeStatus}</span>`;
               html += `<div class="row-actions">${actionBtn}</div>`;
               html += `</div>`;
           });
 
+          console.log('Generated HTML:', html);
           depEl.innerHTML = html;
       }
 
+      async function updateEntur(){
+          try {
+              console.log('Starting Entur update...');
+              updEl.textContent = "oppdaterer…";
+
+              const url = `${API_URL}?bidirectional=true&_=${Date.now()}`;
+              console.log('Fetching Entur data from:', url);
+
+              const response = await fetch(url);
+              if (!response.ok) {
+                  throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+              }
+
+              const result = await response.json();
+              console.log('Entur API response:', result);
+
+              if (result.success) {
+                  renderBidirectionalDepartures(result.data);
+                  updEl.textContent = `oppdatert ${result.updated}`;
+                  console.log('Entur update successful');
+              } else {
+                  throw new Error(result.error || 'Ukjent feil fra API');
+              }
+          } catch (error) {
+              console.error('Entur frontend error:', error);
+              depEl.innerHTML = '<div style="color: #ffb3b3;">Kunne ikke hente avganger: ' + error.message + '</div>';
+              updEl.textContent = "feil ved oppdatering";
+          }
+      }
+
       // Load initially and set up refresh
+      console.log('Initializing Entur integration...');
       updateEntur();
       setInterval(updateEntur, 60_000); // Refresh every minute
   })();
