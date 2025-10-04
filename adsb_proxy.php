@@ -108,18 +108,36 @@ function derive_airline($flight) {
 }
 
 try {
-    // Fetch aircraft data from tar1090
-    $aircraft_url = '/adsb/tar1090/data/aircraft.json';
+    // Determine the base URL dynamically
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $base_url = $protocol . '://' . $host;
+
+    // Allow override via environment variable or GET parameter
+    if (isset($_ENV['ADSB_BASE_URL'])) {
+        $base_url = $_ENV['ADSB_BASE_URL'];
+    } elseif (isset($_GET['adsb_url'])) {
+        $base_url = $_GET['adsb_url'];
+    }
+
+    // Construct the full aircraft data URL
+    $aircraft_url = rtrim($base_url, '/') . '/adsb/tar1090/data/aircraft.json';
+
     $context = stream_context_create([
         'http' => [
             'timeout' => 10,
-            'user_agent' => 'Ramsoya ADS-B Proxy'
+            'user_agent' => 'Ramsoya ADS-B Proxy',
+            'method' => 'GET',
+            'header' => [
+                'Accept: application/json',
+                'Cache-Control: no-cache'
+            ]
         ]
     ]);
 
     $json_data = file_get_contents($aircraft_url, false, $context);
     if ($json_data === false) {
-        throw new Exception('Failed to fetch aircraft data');
+        throw new Exception('Failed to fetch aircraft data from: ' . $aircraft_url);
     }
 
     $data = json_decode($json_data, true);
@@ -150,8 +168,8 @@ try {
         }
         // Enrich aircraft data
         $enriched_aircraft = $aircraft;
-        $enriched_aircraft['distance_km'] = round($distance_km, 1);
-        $enriched_aircraft['distance_nm'] = round(km_to_nm($distance_km), 1);
+        $enriched_aircraft['distance_km'] = (float)number_format($distance_km, 1, '.', '');
+        $enriched_aircraft['distance_nm'] = (float)number_format(km_to_nm($distance_km), 1, '.', '');
 
         // Add airline info if flight code exists
         if (isset($aircraft['flight']) && !empty(trim($aircraft['flight']))) {
