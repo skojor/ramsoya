@@ -69,3 +69,13 @@ uploads/
 # Configuration files with sensitive data
 config.local.php
 database.config.php
+
+# Other
+.htaccess
+.nysnap*
+gammel/
+nysnap.jpg
+pics/
+siste.jpg
+snitt.jpg
+stats/
