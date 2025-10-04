@@ -2,318 +2,15 @@
 <html lang="no">
 <!--
   © 2025 Skorstad Engineering AS
+  and
+  Pastor S.
 -->
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ramsøyvika – Kamera, Vær, Måne, Båter & Fly</title>
-  <style>
-    :root{
-      --overlay-bg: rgba(0,0,0,.35);
-      --overlay-text: #fff;
-      --radius: 14px;
-      --gap: 10px;
-      --pad: 12px;
-      --font: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-    }
-    *{ box-sizing: border-box }
-    html, body { height: 100% }
-    body{
-      margin:0;
-      background:#0b1117;
-      color:#e6edf3;
-      font-family: var(--font);
-      display:flex;
-      align-items:flex-start;
-      justify-content:center;
-      padding: clamp(8px, 2vw, 24px);
-    }
+    <link rel="stylesheet" href="styles.css">
 
-    .page{ width: min(95vw, 1400px); display:grid; gap: 12px; }
-
-    .stage{
-      position: relative;
-      border-radius: var(--radius);
-      overflow: clip;
-      box-shadow: 0 10px 30px rgba(0,0,0,.35);
-      background: #000;
-    }
-    .stage img{
-      display:block;
-      width: 100%;
-      height: auto;
-      object-fit: contain;
-      background:#000;
-    }
-
-    /* Væroverlay – NEDRE VENSTRE (desktop) */
-    .overlay{
-      position: absolute;
-      left: var(--gap);
-      bottom: var(--gap);
-      max-width: min(92%, 540px);
-      background: var(--overlay-bg);
-      color: var(--overlay-text);
-      padding: var(--pad);
-      border-radius: var(--radius);
-      backdrop-filter: blur(3px);
-      -webkit-backdrop-filter: blur(3px);
-      border: 1px solid rgba(255,255,255,.10);
-      box-shadow: 0 6px 18px rgba(0,0,0,.35);
-      line-height: 1.32;
-      font-size: clamp(14px, 1.6vw, 16px);
-      max-height: 45vh;
-      overflow: auto;
-    }
-    .overlay h3{ margin: 0 0 6px 0; font-size: 1em; font-weight: 700; color: #ffffff; letter-spacing: .2px; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
-    .overlay ul{ margin: 0 0 8px 18px; padding: 0; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
-    .overlay li{ margin: 2px 0; }
-
-    /* Status-badge – NEDRE HØYRE med trafikklys */
-    .status-pill{
-      position:absolute;
-      right: var(--gap);
-      bottom: var(--gap);
-      color:#fff;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.18);
-      font-size: clamp(12px, 1.3vw, 13px);
-      display:flex; align-items:center; gap:8px;
-      box-shadow: 0 6px 18px rgba(0,0,0,.35);
-      background: rgba(0,0,0,.35);
-      backdrop-filter: blur(3px);
-      -webkit-backdrop-filter: blur(3px);
-    }
-    .dot{ width: 10px; height: 10px; border-radius:50%; box-shadow: 0 0 8px rgba(0,0,0,.4) inset, 0 0 6px rgba(255,255,255,.15); }
-    .ok   .dot{ background:#26c281; }
-    .warn .dot{ background:#f5c04f; }
-    .bad  .dot{ background:#ff4d4f; }
-
-    @media (max-width: 640px) { .status-pill { display: none; } }
-
-    /* Måne + tide */
-    .moon-card{ display:grid; grid-template-columns: auto 1fr; gap: 16px; align-items:center; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: var(--radius); padding: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
-    .moon-svg{ width: 120px; height: 120px; display:block; filter: drop-shadow(0 2px 6px rgba(0,0,0,.55)) drop-shadow(0 0 10px rgba(255,255,255,.20)) drop-shadow(0 0 20px rgba(255,255,255,.10)); }
-    .moon-info{ display:grid; gap: 4px; line-height:1.35; }
-    .moon-title{ font-weight:700 }
-    .muted{ opacity:.85 }
-    .moon-card circle[stroke]{ stroke: rgba(255,255,255,.28) !important; stroke-width: 1.5 !important; }
-
-    .tide-under-moon{ margin-top:.6rem; padding:.5rem .6rem; border:1px solid #2a3340; border-radius:.6rem; background:rgba(0,0,0,.25); font-size:.95rem; }
-    .tide-under-moon .tide-row{ display:flex; align-items:baseline; justify-content:space-between; gap:.75rem; padding:.2rem 0; }
-    .tide-under-moon .tide-label{ color:#a9b3bd; }
-    .tide-under-moon .tide-value{ font-variant-numeric:tabular-nums; font-weight:600; }
-
-    /* Time-for-time */
-    .forecastHourly{ background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 10px; box-shadow: 0 6px 16px rgba(0,0,0,.25); }
-    .fcH-head{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding: 0 2px; }
-    .fcH-note{ opacity:.8; font-size:.95em }
-    .fcH-strip{ display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; scroll-snap-type: x mandatory; }
-    .fcH-card{ flex: 0 0 96px; background: rgba(0,0,0,.2); border: 1px solid rgba(255,255,255,.10); border-radius: 12px; padding: 8px; display:grid; gap:6px; justify-items:center; text-align:center; scroll-snap-align: start; }
-    .fcH-time{ font-weight:700 }
-    .fcH-icon img{ width:88px; height:88px }
-    .fcH-t{ font-variant-numeric: tabular-nums }
-    .fcH-mm{ opacity:.9; font-size:.95em }
-    .fcH-wind { font-size: .85rem; opacity: .9; line-height: 1.3; }
-
-/* Tilpasning for Entur-tekstblokken */
-#entur-next-dep div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: .5rem;
-  margin: .4rem 0;   /* mer luft mellom linjene */
-}
-#entur-next-dep strong {
-  color: #a9b3bd;
-  font-weight: 600;
-  margin-right: .3rem;
-}
-#entur-next-dep .row-actions {
-  flex-shrink: 0;
-}
-#entur-next-dep {
-  font-size: .95rem;
-  line-height: 1.45;
-  color: #e6edf3;
-}
-
-
-
-
-
-/* Tilpasning for Entur-kortet */
-#entur-actions { gap: .35rem; }
-
-/* Hourly forecast spacing – kun for Entur */
-#entur-section .fcH-strip {
-  display: flex;
-  justify-content: space-around;
-  gap: 1rem;
-}
-#entur-section .fcH-card {
-  flex: 0 0 90px;
-  text-align: center;
-}
-
-/* Mobiljustering for Entur-kortet */
-@media (max-width: 640px) {
-  #entur-section .fcH-strip {
-    overflow-x: auto;
-    justify-content: flex-start;
-    gap: 0.5rem;
-  }
-  #entur-section .fcH-card { flex: 0 0 60px; }
-}
-
-    .wind-arrow { display: inline-block; margin-left: .25rem; }
-    .wind-barb{ width:34px; height:34px; margin-left:.25rem; vertical-align:middle; }
-    @media (max-width:640px){ .wind-barb{ width:28px; height:28px; } }
-
-    @media (max-width: 640px){ #forecastHourly { grid-template-columns: repeat(3, minmax(0,1fr)); } }
-
-    @media (max-width: 640px){
-      .overlay{ position: static; left: auto; bottom: auto; right: auto; width: auto; max-width: none; margin: 8px; max-height: 38vh; }
-      .status-pill{ right: 10px; bottom: 10px; }
-      .moon-card{ grid-template-columns: 1fr; justify-items:center; text-align:center; }
-      .fcH-card{ flex-basis: 86px; }
-    }
-
-    /* Måne + varsel samme linje */
-    .astro-row{ display: flex; gap: 12px; align-items: stretch; }
-    .moon-card{ flex: 0 0 320px; }
-    .fcH-head{ flex: 0 0 auto; }
-    .fcH-strip{ flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-
-    @media (max-width: 640px){ .astro-row{ display: grid; grid-template-columns: 1fr; } .moon-card{ flex: none; } }
-
-    /* === (NYTT) Felles styling for BÅTER og FLY seksjoner === */
-    #ais-section, #adsb-section { --card-bg: #0b0b0b99; --text: #e9eef3; --muted: #a9b3bd; --border: #2a3340; --hover: #10161f80; max-width: 1100px; margin: 1rem auto; padding: 0 1rem; color: var(--text); }
-    #ais-section .ais-card, #adsb-section .ais-card{ background: var(--card-bg); backdrop-filter: blur(6px); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
-    #ais-section header, #adsb-section header{ display: flex; align-items: baseline; gap: .75rem; margin-bottom: .5rem; }
-    #ais-section header h2, #adsb-section header h2{ font-size: 1.05rem; font-weight: 600; margin: 0; }
-    #ais-section .meta, #adsb-section .meta{ font-size: .9rem; color: var(--muted); }
-    #ais-section .meta .dot, #adsb-section .meta .dot{ padding: 0 .4rem; }
-
-    /* Tabeller: båter + fly */
-    #ais-table, #adsb-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: .95rem; border-radius: 8px; overflow: hidden; }
-    #ais-table th, #ais-table td, #adsb-table th, #adsb-table td { text-align: left; padding: .55rem .6rem; border-bottom: 1px solid var(--border); vertical-align: middle; word-wrap: break-word; }
-    #ais-table thead th, #adsb-table thead th { font-weight: 600; color: var(--muted); background: #0f141a66; }
-    #ais-table tbody tr, #adsb-table tbody tr { cursor: pointer; }
-    #ais-table tbody tr:hover, #adsb-table tbody tr:hover { background: var(--hover); }
-
-    #ais-section .empty, #ais-section .error, #adsb-section .empty, #adsb-section .error{ padding: .6rem .75rem; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted); margin-top: .5rem; }
-    #ais-section .error, #adsb-section .error { color: #ffb3b3; border-color: #6b1f1f; }
-
-    /* Små skjermer: AIS skjuler kolonner 2–4; ADS-B skjuler høyde, fart og retning */
-    @media (max-width: 640px) {
-      #ais-table th:nth-child(2), #ais-table td:nth-child(2),
-      #ais-table th:nth-child(3), #ais-table td:nth-child(3),
-      #ais-table th:nth-child(4), #ais-table td:nth-child(4) { display:none; }
-
-      #adsb-table th:nth-child(3), #adsb-table td:nth-child(3)  /* Flyselskap */
-      { display:none; }
-
-      #adsb-table th:nth-child(2), #adsb-table td:nth-child(2), /* Høyde */
-      #adsb-table th:nth-child(3), #adsb-table td:nth-child(3), /* Fart */
-      #adsb-table th:nth-child(4), #adsb-table td:nth-child(4)  /* Retning */
-      { display:none; }
-
-      /* Skjul lenkekolonne på små skjermer */
-      #ais-table th:nth-child(7), #ais-table td:nth-child(7),
-      #adsb-table th:nth-child(8), #adsb-table td:nth-child(8) { display:none; }
-    }
-
-    /* Retningspil (gjenbruk til både AIS COG og ADS-B heading) */
-    .cog-wrap{display:flex;align-items:center;gap:.45rem}
-    .cog-arrow{ width:22px; height:32px; transform-origin:50% 50%; }
-    .cog-arrow .shaft{ stroke: currentColor; stroke-width: 3.2; stroke-linecap: round; }
-    .cog-arrow .head{ fill: currentColor; }
-    .cog-arrow .outline{ stroke: rgba(0,0,0,.45); stroke-width: 5.4; stroke-linecap: round; fill: none; }
-    .cog-text{opacity:.85; min-width: 3ch;}
-
-    /* Nettbrett-tilpasning for overlay */
-    @media (min-width: 700px) and (max-width: 1024px) { .overlay{ max-width: min(52%, 520px); font-size: 14px; padding: 6px 8px; } }
-    @media (min-width: 600px) and (max-width: 820px) and (orientation: portrait){ .overlay{ max-width: min(46%, 460px); font-size: 13.5px; padding: 6px 8px; } }
-    @media (max-height: 600px) and (min-width: 700px){ .overlay{ max-width: 42%; font-size: 13px; padding: 5px 7px; } }
-  
-/* AIS hover-tooltip */
-#ais-tooltip{
-  position: fixed;
-  left: 0; top: 0;
-  transform: translate(-9999px,-9999px);
-  background: rgba(8,12,18,.92);
-  color: #e6edf3;
-  border: 1px solid #2a3340;
-  border-radius: 8px;
-  padding: 8px 10px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.45);
-  font-size: .9rem;
-  line-height: 1.35;
-  white-space: pre-line;
-  z-index: 9999;
-  pointer-events: none;
-  max-width: 360px;
-}
-#ais-tooltip[hidden]{ display:none !important; }
-
-
-  
-    /* Rad-ikonknapper */
-    .row-actions{ display:flex; gap:.35rem; align-items:center; }
-    .iconbtn{
-      display:inline-flex; align-items:center; justify-content:center;
-      width:28px; height:28px; border-radius:8px;
-      border:1px solid rgba(255,255,255,.15);
-      background: rgba(255,255,255,.06);
-      cursor:pointer; text-decoration:none; color:#e6edf3;
-    }
-    .iconbtn:hover{ background: rgba(255,255,255,.12); }
-    .iconbtn svg{ width:16px; height:16px; display:block; }
-
-  
-.fcH-card {
-    flex: 0 0 60px;
-  }
- /* Begrens layouten */
-  .charts-wrap{
-    max-width: 1200px;
-    margin: 0 auto;
-    display: grid;
-    gap: 16px;
-  }
-  /* Hver graf har fast (rimelig) høyde */
-  .chart-box{ height: 400px;        /* juster 240–400px etter smak */
-    width: 100%;
-  }
-  /* Canvas skal bruke hele boksen, men ikke større enn containeren */
-  .chart-box canvas{
-    width: 100% !important;
-    height: 100% !important;
-    display: block;
-  }
-
-
-#tempChart, #windChart {
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
-}
-
-  /* Badge for "(i morgen)" */
-  .badge-tomorrow{
-    display:inline-block;
-    font-size:.8em;
-    padding:0 .4em;
-    border-radius:.5em;
-    background:rgba(255,255,255,.12);
-    border:1px solid rgba(255,255,255,.25);
-    margin-left:.35em;
-    vertical-align:baseline;
-    line-height:1.4;
-  }
-</style>
 <script id="windbarb-helpers">
 ;(() => {
   // m/s -> kn
@@ -383,11 +80,11 @@
 })();
 </script>
 <script>window.WIND_FLIP = true;</script>
-<link rel="preconnect" href="https://ramsoy.skorstad.name" crossorigin>
+<link rel="preconnect" href="https://staging.skorstad.name" crossorigin>
 <link rel="preconnect" href="https://vannstand.kartverket.no">
 <link rel="preconnect" href="https://www.marinetraffic.com">
 <link rel="preconnect" href="https://www.flightradar24.com">
-<link rel="dns-prefetch" href="//ramsoy.skorstad.name">
+<link rel="dns-prefetch" href="//staging.skorstad.name">
 <link rel="dns-prefetch" href="//vannstand.kartverket.no">
 <link rel="dns-prefetch" href="//www.marinetraffic.com">
 <link rel="dns-prefetch" href="//www.flightradar24.com">
@@ -447,7 +144,7 @@
 
   <div class="page">
     <main class="stage" aria-live="polite">
-      <img id="cam" alt="Siste webkamerabilde fra Ramsøy" decoding="async" loading="eager" / fetchpriority="high">
+      <img id="cam" alt="Siste webkamerabilde fra Ramsøy" decoding="async" loading="eager" fetchpriority="high">
       <aside class="overlay" id="weatherOverlay" hidden></aside>
       <div class="status-pill ok" id="status"><span class="dot" aria-hidden="true"></span><span id="statusText">Laster…</span></div>
     </main>
@@ -482,8 +179,7 @@
       <!-- NB: Ikke egen actions-linje her lenger; knapper ligger per linje -->
     </div>
   </div>
-</section>
-</div>
+</section></div>
     <!-- AIS-seksjon -->
     <section id="ais-section" aria-labelledby="ais-heading">
       <div class="ais-card">
@@ -563,12 +259,12 @@
   const norm360 = d => ((d % 360) + 360) % 360;
   const WIND_ARROW_MODE = 'to';
   const IMG_URL = "https://ramsoy.skorstad.name/siste.jpg";
-  const WEATHER_URL = "https://ramsoy.skorstad.name/getweather_overlay.php";
+  const WEATHER_URL = "getweather_overlay.php";
   const IMAGE_INTERVAL_MS = 20_000;
   const WEATHER_INTERVAL_MS = 30_000;
   const MOON_URL = "/met_moon_proxy.php?lat=64.33&lon=10.41";
   const FORECAST_URL = "/met_forecast_proxy.php?lat=64.32785&lon=10.41549";
-  const ICON_BASE = "https://ramsoy.skorstad.name/ikoner/yr/";
+  const ICON_BASE = "ikoner/yr/";
   const YR_SYMBOL_MAP = { clearsky_day:'01d', clearsky_night:'01n', clearsky_polartwilight:'01m', fair_day:'02d', fair_night:'02n', fair_polartwilight:'02m', partlycloudy_day:'03d', partlycloudy_night:'03n', partlycloudy_polartwilight:'03m', cloudy:'04', lightrainshowers_day:'40d', lightrainshowers_night:'40n', lightrainshowers_polartwilight:'40m', rainshowers_day:'05d', rainshowers_night:'05n', rainshowers_polartwilight:'05m', heavyrainshowers_day:'41d', heavyrainshowers_night:'41n', heavyrainshowers_polartwilight:'41m', lightrainshowersandthunder_day:'24d', lightrainshowersandthunder_night:'24n', lightrainshowersandthunder_polartwilight:'24m', rainshowersandthunder_day:'06d', rainshowersandthunder_night:'06n', rainshowersandthunder_polartwilight:'06m', heavyrainshowersandthunder_day:'25d', heavyrainshowersandthunder_night:'25n', heavyrainshowersandthunder_polartwilight:'25m', lightsleetshowers_day:'42d', lightsleetshowers_night:'42n', lightsleetshowers_polartwilight:'42m', sleetshowers_day:'07d', sleetshowers_night:'07n', sleetshowers_polartwilight:'07m', heavysleetshowers_day:'43d', heavysleetshowers_night:'43n', heavysleetshowers_polartwilight:'43m', lightsleetshowersandthunder_day:'26d', lightsleetshowersandthunder_night:'26n', lightsleetshowersandthunder_polartwilight:'26m', sleetshowersandthunder_day:'20d', sleetshowersandthunder_night:'20n', sleetshowersandthunder_polartwilight:'20m', heavysleetshowersandthunder_day:'27d', heavysleetshowersandthunder_night:'27n', heavysleetshowersandthunder_polartwilight:'27m', lightsnowshowers_day:'44d', lightsnowshowers_night:'44n', lightsnowshowers_polartwilight:'44m', snowshowers_day:'08d', snowshowers_night:'08n', snowshowers_polartwilight:'08m', heavysnowshowers_day:'45d', heavysnowshowers_night:'45n', heavysnowshowers_polartwilight:'45m', lightsnowshowersandthunder_day:'28d', lightsnowshowersandthunder_night:'28n', lightsnowshowersandthunder_polartwilight:'28m', snowshowersandthunder_day:'21d', snowshowersandthunder_night:'21n', snowshowersandthunder_polartwilight:'21m', heavysnowshowersandthunder_day:'29d', heavysnowshowersandthunder_night:'29n', heavysnowshowersandthunder_polartwilight:'29m', lightrain:'46', rain:'09', heavyrain:'10', lightrainandthunder:'30', rainandthunder:'22', heavyrainandthunder:'11', lightsleet:'47', sleet:'12', heavysleet:'48', lightsleetandthunder:'31', sleetandthunder:'23', heavysleetandthunder:'32', lightsnow:'49', snow:'13', heavysnow:'50', lightsnowandthunder:'33', snowandthunder:'14', heavysnowandthunder:'34', fog:'15' };
   const iconDefault = `${ICON_BASE}04.svg`;
 
@@ -589,31 +285,82 @@
   // --- Bilde + status ---
   function refreshImage(){
     const img = new Image();
-    img.onload = async () => { camImg.src = img.src; lastImageTs = Date.now(); await updateImageCaptureTime(); if (!imageCaptureTs) imageCaptureTs = lastImageTs; updateStatus(); };
+    img.onload = async () => {
+      camImg.src = img.src;
+      lastImageTs = Date.now();
+      await updateImageCaptureTime();
+      updateStatus();
+    };
     img.onerror = () => {};
     img.src = bust(IMG_URL);
   }
   async function updateImageCaptureTime(){
-    try{ const res = await fetch(IMG_URL, { method: 'HEAD', cache: 'no-store' }); const lm = res.headers.get('Last-Modified'); if (lm){ const t = new Date(lm).getTime(); if (Number.isFinite(t)) imageCaptureTs = t; } }catch(e){}
+    try{
+      const res = await fetch('/image_metadata_proxy.php', {
+        method: 'GET',
+        cache: 'no-cache'
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.lastModified) {
+          const t = new Date(data.lastModified).getTime();
+          if (Number.isFinite(t)) {
+            imageCaptureTs = t;
+          }
+        }
+      }
+    }catch(e){
+      console.error("Could not fetch image metadata:", e);
+    }
   }
   function humanAge(ms){ const s = Math.max(0, Math.floor(ms/1000)); if (s<60) return `${s}s`; const m=Math.floor(s/60), r=s%60; if (m<60) return `${m}m ${r}s`; const h=Math.floor(m/60), mr=m%60; return `${h}t ${mr}m`; }
-  function updateStatus(){ const baseTs = imageCaptureTs || lastImageTs; if (!baseTs){ statusText.textContent = "Laster…"; statusEl.className = "status-pill warn"; return; } const ageSec = Math.floor((Date.now()-baseTs)/1000); statusEl.className = "status-pill "+(ageSec>300?"bad":ageSec>120?"warn":"ok"); statusText.textContent = `Bilde ${humanAge(Date.now()-baseTs)} gammelt`; }
+  function updateStatus(){
+    // Only use imageCaptureTs if available, otherwise show loading state
+    if (!imageCaptureTs){
+      statusText.textContent = "Laster…";
+      statusEl.className = "status-pill warn";
+      return;
+    }
+    const ageSec = Math.floor((Date.now() - imageCaptureTs) / 1000);
+    statusEl.className = "status-pill " + (ageSec > 300 ? "bad" : ageSec > 120 ? "warn" : "ok");
+    statusText.textContent = `Bilde ${humanAge(Date.now() - imageCaptureTs)} gammelt`;
+  }
 
   // --- Væroverlay ---
   function renderWeather(data){ overlayEl.innerHTML = ""; const wrap=(title,lines)=>{ const section=document.createElement("section"); if(title){ const h=document.createElement("h3"); h.textContent=title; section.appendChild(h); } if(Array.isArray(lines)&&lines.length){ const ul=document.createElement("ul"); for(const line of lines){ const li=document.createElement("li"); li.textContent=String(line); ul.appendChild(li);} section.appendChild(ul);} return section;}; const normalized=[]; if(Array.isArray(data)){ for(const entry of data){ if(entry&&typeof entry==="object"&&"data" in entry){ normalized.push({ title: entry.label||"", lines: Array.isArray(entry.data)?entry.data:[String(entry.data??"")] }); } else normalized.push({ title: "", lines:[String(entry)]}); } } else if (data&&typeof data==="object"&&"data" in data){ normalized.push({ title:data.label||"", lines:Array.isArray(data.data)?data.data:[String(data.data??"")]}); } else if (data!=null){ normalized.push({ title:"", lines:[String(data)]}); } for(const block of normalized){ overlayEl.appendChild(wrap(block.title, block.lines)); } overlayEl.hidden = overlayEl.childElementCount===0; }
   async function fetchWeather(){ try{ const res=await fetch(bust(WEATHER_URL), { headers:{"Accept":"application/json"}, cache:"no-cache" }); const text=await res.text(); let json; try{ json=JSON.parse(text);}catch{ const cleaned=text.trim().replace(/^[\uFEFF]/, "").replace(/<\/?pre[^>]*>/gi, ""); json=JSON.parse(cleaned);} renderWeather(json); lastWeatherTs=Date.now(); updateStatus(); }catch(e){ console.error("Værfeil:", e); } }
 
   // --- Måne ---
-  function phaseName(deg){ const d=((deg%360)+360)%360; if(d<10||d>=350) return "Nymåne"; if(Math.abs(d-90)<10) return "Første kvarter"; if(Math.abs(d-180)<10) return "Fullmåne"; if(Math.abs(d-270)<10) return "Siste kvarter"; return d<180?"Voksende":"Minkende"; }
-  function illumFrac(deg){ return (1 - Math.cos((deg*Math.PI)/180)) / 2; }
-  function renderMoonSVG(deg){ const size=120,r=size/2,cx=r,cy=r,phi=(deg*Math.PI)/180; const rx=Math.abs(Math.cos(phi))*r; const N=64; const sample=(from,to,fn)=>{const pts=[]; for(let i=0;i<=N;i++){ const t=from+(to-from)*(i/N); pts.push(fn(t)); } return pts;}; const circle=t=>[cx+r*Math.cos(t), cy+r*Math.sin(t)]; const eRight=t=>[cx+rx*Math.cos(t), cy+r*Math.sin(t)]; const eLeft=t=>[cx-rx*Math.cos(t), cy+r*Math.sin(t)]; let pts=[]; if (deg<=180){ pts=pts.concat(sample(-Math.PI/2, Math.PI/2, circle)); if (deg<=90) pts=pts.concat(sample(Math.PI/2, -Math.PI/2, eRight)); else pts=pts.concat(sample(Math.PI/2, -Math.PI/2, eLeft)); } else { pts=pts.concat(sample(Math.PI/2, 3*Math.PI/2, circle)); if (deg<=270) pts=pts.concat(sample(-Math.PI/2, Math.PI/2, eRight)); else pts=pts.concat(sample(-Math.PI/2, Math.PI/2, eLeft)); } const d=["M", pts[0][0].toFixed(3), pts[0][1].toFixed(3)].concat(pts.slice(1).flatMap(([x,y])=>["L", x.toFixed(3), y.toFixed(3)])).concat(["Z"]).join(" "); const defs=`<defs><filter id="moonGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="b1"/><feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`; const bg=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="#1e2228"/>`; const lit=`<g filter="url(#moonGlow)"><path d="${d}" fill="#ffffff"/></g>`; const rim=`<circle cx="${cx}" cy="${cy}" r="${r-0.6}" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>`; moonSvg.innerHTML = defs+bg+lit+rim; moonSvg.setAttribute("viewBox", `0 0 ${size} ${size}`); }
-  function deepFindMoonphase(obj){ if(!obj||typeof obj!=="object") return null; if("moonphase" in obj){ const mp=obj.moonphase; if(mp&&typeof mp==="object"&&"value" in mp) return Number(mp.value); if(typeof mp==="number") return mp; } for(const k of Object.keys(obj)){ const v=obj[k]; const found=typeof v==="object"?deepFindMoonphase(v):null; if(found!=null&&!Number.isNaN(found)) return found; } return null; }
-  async function fetchMoon(){ try{ const res=await fetch(MOON_URL, { cache:"no-cache" }); const data=await res.json(); let deg=deepFindMoonphase(data); if (deg==null||!Number.isFinite(deg)) throw new Error("Fant ikke moonphase"); deg=((deg%360)+360)%360; const illum=illumFrac(deg); renderMoonSVG(deg); moonText.textContent = `${phaseName(deg)} • ${(illum*100).toFixed(0)}%`; }catch(err){ console.error("Moon API-feil:", err); moonText.textContent = "Kunne ikke hente månefasen nå."; renderMoonSVG(0);} }
+  // Simplified client-side moon handling - backend now does the heavy lifting
+  async function fetchMoon(){
+    try{
+      const res = await fetch(MOON_URL, { cache:"no-cache" });
+      const data = await res.json();
+
+      // Use pre-calculated values from enhanced backend proxy
+      if (data.processed) {
+        moonSvg.innerHTML = data.processed.svg;
+        moonSvg.setAttribute("viewBox", "0 0 120 120");
+        moonText.textContent = data.processed.text;
+      } else {
+        // Minimal fallback for unexpected response format
+        moonText.textContent = "Kunne ikke behandle månedata";
+        console.warn("Moon proxy returned unexpected format:", data);
+      }
+    } catch(err) {
+      console.error("Moon API-feil:", err);
+      moonText.textContent = "Kunne ikke hente månefasen nå.";
+      // Simple fallback moon display
+      moonSvg.innerHTML = '<circle cx="60" cy="60" r="60" fill="#1e2228"/><circle cx="60" cy="60" r="59.4" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>';
+      moonSvg.setAttribute("viewBox", "0 0 120 120");
+    }
+  }
 
   // --- Time-for-time ---
   function iconForSymbol(symbol_code){ if(!symbol_code) return null; const id = YR_SYMBOL_MAP[symbol_code]; return id ? `${ICON_BASE}${id}.svg` : iconDefault; }
   function pickHourlySymbol(item){ return item?.data?.next_1_hours?.summary?.symbol_code || item?.data?.next_6_hours?.summary?.symbol_code || item?.data?.next_12_hours?.summary?.symbol_code || null; }
-  function renderHourly(series){ const now=Date.now(); const upcoming=series.filter(it=>new Date(it.time).getTime()>=now); const cards=[]; for(let i=0;i<upcoming.length && cards.length<6;i+=4){ const it=upcoming[i]; const hasPeriod = it?.data?.next_1_hours || it?.data?.next_6_hours || it?.data?.next_12_hours; if(!hasPeriod) continue; const tUTC=new Date(it.time); const tLocal=new Date(tUTC.toLocaleString('en-US',{timeZone: tzOslo})); const timeLabel=hourFmt.format(tLocal); const T=it?.data?.instant?.details?.air_temperature; const tDisp=Number.isFinite(T)?`${Math.round(T)}°`:'–'; const p1=it?.data?.next_1_hours?.details?.precipitation_amount; const p6=it?.data?.next_6_hours?.details?.precipitation_amount; const p12=it?.data?.next_12_hours?.details?.precipitation_amount; const precip=(p1 ?? p6 ?? p12 ?? 0); const pDisp=`${(+precip).toFixed(1)} mm`; const d=it?.data?.instant?.details || {}; const wind=d.wind_speed; const gust=d.wind_speed_of_gust; const windFrom=d.wind_from_direction; const bf=(function(ms){ const b = ms<0.5?0: ms<1.6?1: ms<3.4?2: ms<5.5?3: ms<8.0?4: ms<10.8?5: ms<13.9?6: ms<17.2?7: ms<20.8?8: ms<24.5?9: ms<28.5?10: ms<32.7?11:12; const txt=["stille","flau vind","svak vind","lett bris","laber bris","frisk bris","liten kuling","stiv kuling","sterk kuling","liten storm","full storm","sterk storm","orkan"][b]; return {bft:b, txt};})(wind ?? -1); let bearing=null; if (windFrom!=null){ bearing=(WIND_ARROW_MODE==='from')?windFrom:norm360(windFrom+180);} const rot=(bearing==null)?null:norm360(bearing-90); const arrow = (Number.isFinite(wind) && Number.isFinite(windFrom)) ? window.windBarbSVG(wind, windFrom) : ""; const windTxt=(wind==null)?"– m/s":`${Math.round(wind)} m/s${gust?` (kast ${Math.round(gust)})`:""}${Number.isFinite(wind)?` – ${bf.txt}`:""}`; const sym=pickHourlySymbol(it); const iconPath=iconForSymbol(sym); cards.push({ timeLabel, tDisp, pDisp, windTxt, arrow, iconPath, sym }); }
+  function renderHourly(series){ const now=Date.now(); const upcoming=series.filter(it=>new Date(it.time).getTime()>=now); const cards=[]; for(let i=0;i<upcoming.length && cards.length<6;i+=4){ const it=upcoming[i]; const hasPeriod = it?.data?.next_1_hours || it?.data?.next_6_hours || it?.data?.next_12_hours; if(!hasPeriod) continue; const tUTC=new Date(it.time); const tLocal=new Date(tUTC.toLocaleString('en-US',{timeZone: tzOslo})); const timeLabel=hourFmt.format(tLocal); const T=it?.data?.instant?.details?.air_temperature; const tDisp=Number.isFinite(T)?`${Math.round(T)}°`:'–'; const p1=it?.data?.next_1_hours?.details?.precipitation_amount; const p6=it?.data?.next_6_hours?.details?.precipitation_amount; const p12=it?.data?.next_12_hours?.details?.precipitation_amount; const precip=(p1 ?? p6 ?? p12 ?? 0); const pDisp=`${(+precip).toFixed(1)} mm`; const d=it?.data?.instant?.details || {}; const wind=d.wind_speed; const gust=d.wind_speed_of_gust; const windFrom=d.wind_from_direction; const bf=(function(ms){ const b = ms<0.5?0: ms<1.6?1: ms<3.4?2: ms<5.5?3: ms<8.0?4: ms<10.8?5: ms<13.9?6: ms<17.2?7: ms<20.8?8: ms<24.5?9: ms<28.5?10:ms<32.7?11:12; const txt=["stille","flau vind","svak vind","lett bris","laber bris","frisk bris","liten kuling","stiv kuling","sterk kuling","liten storm","full storm","sterk storm","orkan"][b]; return {bft:b, txt};})(wind ?? -1); let bearing=null; if (windFrom!=null){ bearing=(WIND_ARROW_MODE==='from')?windFrom:norm360(windFrom+180);} const rot=(bearing==null)?null:norm360(bearing-90); const arrow = (Number.isFinite(wind) && Number.isFinite(windFrom)) ? window.windBarbSVG(wind, windFrom) : ""; const windTxt=(wind==null)?"– m/s":`${Math.round(wind)} m/s${gust?` (kast ${Math.round(gust)})`:""}${Number.isFinite(wind)?` – ${bf.txt}`:""}`; const sym=pickHourlySymbol(it); const iconPath=iconForSymbol(sym); cards.push({ timeLabel, tDisp, pDisp, windTxt, arrow, iconPath, sym }); }
     forecastHourlyEl.innerHTML='';
     for(const c of cards){ const el=document.createElement('div'); el.className='fcH-card'; el.innerHTML=`<div class="fcH-time">${c.timeLabel}</div><div class="fcH-icon">${c.iconPath?`<img src="${c.iconPath}" alt="${c.sym}" onerror="this.onerror=null;this.src='${ICON_BASE}04.svg';this.alt='cloudy';">`:'—'}</div><div class="fcH-t">${c.tDisp}</div><div class="fcH-mm">${c.pDisp}</div><div class="fcH-wind">${c.windTxt} ${c.arrow}</div>`; forecastHourlyEl.appendChild(el);} }
   async function loadForecastHourly(){ try{ const res=await fetch(FORECAST_URL,{cache:'no-cache'}); const raw=await res.text(); if(!res.ok){ console.error('Forecast HTTP',res.status,raw.slice(0,200)); forecastHourlyEl.textContent='Kunne ikke hente varsel.'; return;} let json; try{ json=JSON.parse(raw);}catch(e){ console.error('Forecast JSON',e,raw.slice(0,200)); forecastHourlyEl.textContent='Ugyldig varseldata.'; return;} const series=json?.properties?.timeseries||[]; if(!series.length){ forecastHourlyEl.textContent='Ingen varseldata.'; return;} renderHourly(series);}catch(e){ console.error('Forecast error',e); forecastHourlyEl.textContent='Kunne ikke hente varsel.'; } }
@@ -699,9 +446,9 @@ function fmt(val, suffix=''){
       const vr = fmtFpm(a.baro_rate ?? a.vert_rate);
       const gs = fmtKt(a.gs);
       const trk = fmtDeg(a.track);
-      const dist = (a._dist_nm!=null) ? (a._dist_nm<1 ? `${(a._dist_nm*1000/1.852|0)} m` : `${a._dist_nm.toFixed(1)} nm`) : '–';
+      const dist = (a.distance_nm!=null) ? (a.distance_nm<1 ? `${(a.distance_nm*1000/1.852|0)} m` : `${a.distance_nm.toFixed(1)} nm`) : '–';
       const seen = (a.seen!=null) ? `${a.seen.toFixed(1)} s` : '–';
-      const airline = deriveAirlineFromFlight(flight) || '–';
+      const airline = a.airline || '–';
       lines.push(`Flight: ${flight}`);
       lines.push(`Flyselskap: ${airline}`);
       lines.push(`ICAO: ${a.hex || '–'}`);
@@ -718,92 +465,30 @@ function fmt(val, suffix=''){
       return lines.join('\n');
     }
 
-
-    function haversineKm(a,b){ const R=6371; const dLat=(b.lat-a.lat)*Math.PI/180; const dLon=(b.lon-a.lon)*Math.PI/180; const la1=a.lat*Math.PI/180; const la2=b.lat*Math.PI/180; const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
-    const km2nm = km => km/1.852;
-    function fmtAlt(ft){ if(ft==null) return '—'; if(typeof ft==='string') return ft; return Math.round(ft).toLocaleString('no-NO')+' ft'; }
     const fmtGs = kt => kt==null?'—': Math.round(kt)+' kt';
     const fmtNm = nm => nm<1? (nm*1000/1.852|0)+' m' : nm.toFixed(1)+' nm';
     const fmtSeen = s => s==null?'—': s.toFixed(1)+' s';
     // Ikoner (inline SVG)
     const ICON_SEARCH = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4z"/></svg>`;
 
-    // Airline map (IATA/ICAO prefixes) – extend as needed
-    const AIRLINE_MAP = {
-      // IATA -> name
-      'SK': 'Scandinavian Airlines (SAS)',
-      'DY': 'Norwegian',
-      'WF': 'Widerøe',
-      'KL': 'KLM',
-      'LH': 'Lufthansa',
-      'BA': 'British Airways',
-      'FR': 'Ryanair',
-      'W6': 'Wizz Air',
-      'AF': 'Air France',
-      'AY': 'Finnair',
-      'BT': 'airBaltic',
-      'SU': 'Aeroflot',
-      'TK': 'Turkish Airlines',
-      'LX': 'SWISS',
-      'OS': 'Austrian',
-      'SN': 'Brussels Airlines',
-      'IB': 'Iberia',
-      'VY': 'Vueling',
-      'LO': 'LOT Polish Airlines',
-      'AZ': 'ITA Airways',
-      'EZY': 'easyJet', // ICAO-style code sometimes seen in callsign
-      'U2': 'easyJet',
-      'SAS': 'Scandinavian Airlines',
-      'NAX': 'Norwegian Air Shuttle',
-      'WIF': 'Widerøe',
-      'KLM': 'KLM',
-      'DLH': 'Lufthansa',
-      'BAW': 'British Airways',
-      'RYR': 'Ryanair',
-      'AFR': 'Air France',
-      'FIN': 'Finnair',
-      'BTI': 'airBaltic',
-      'THY': 'Turkish Airlines',
-      'SWR': 'SWISS',
-      'AUA': 'Austrian',
-      'IBE': 'Iberia',
-      'VLG': 'Vueling',
-      'LOT': 'LOT Polish Airlines',
-      'ITY': 'ITA Airways',
-      'NOZ': 'Norwegian'
-    };
-    function deriveAirlineFromFlight(flight){
-      if(!flight) return null;
-      const f = flight.trim().toUpperCase();
-      // Try 2-char IATA then 3-char ICAO
-      const two = f.slice(0,2);
-      const three = f.slice(0,3);
-      if (AIRLINE_MAP[two]) return AIRLINE_MAP[two];
-      if (AIRLINE_MAP[three]) return AIRLINE_MAP[three];
-      return null;
-    }
+    function fmtAlt(ft){ if(ft==null) return '—'; if(typeof ft==='string') return ft; return Math.round(ft).toLocaleString('no-NO')+' ft'; }
+
     function fr24FlightUrl(flight){
       return 'https://www.flightradar24.com/64.32,10.41/8';
     }
 
+    function googleFlightUrl(flight){
+      return `https://www.google.com/search?q=${encodeURIComponent(flight + ' flight')}`;
+    }
 
-    
+    // Fetch aircraft data from server-side proxy
     async function fetchAircraft(){
-      const candidates = [
-        '/adsb/tar1090/data/aircraft.json'
-      ];
-      let lastErr;
-      for (const url of candidates){
-        try{
-          const res = await fetch(url, { cache: 'no-store' });
-          if(!res.ok){ lastErr = new Error('HTTP '+res.status+' at '+url); continue; }
-          const json = await res.json();
-          if (json && (Array.isArray(json.aircraft) || typeof json.now === 'number')){
-            return { json, url };
-          }
-        }catch(e){ lastErr = e; }
-      }
-      throw lastErr || new Error('Ingen aircraft.json funnet');
+      const url = `/adsb_proxy.php?lat=${ORIGIN.lat}&lon=${ORIGIN.lon}&radius=${MAX_DIST_KM}&max_age=${MAX_SEEN_S}`;
+      const res = await fetch(url, { cache: 'no-store' });
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Server error');
+      return data;
     }
 
     function makeHeadingCell(track){ const td=document.createElement('td'); const n=Number(track); if(Number.isFinite(n)){ let hdg=((n%360)+360)%360;
@@ -818,12 +503,12 @@ function fmt(val, suffix=''){
       tr.addEventListener('mouseleave', ()=>{ const t=$tooltip(); t.style.visibility=''; t.style.display='none'; });
       const flight=(a.flight||'').trim() || (a.t||a.hex||'—');
       const tdF=document.createElement('td'); tdF.textContent=flight; tr.appendChild(tdF);
-      const airline = deriveAirlineFromFlight(flight) || '—';
+      const airline = a.airline || '—';
       const tdAir=document.createElement('td'); tdAir.textContent=airline; tr.appendChild(tdAir);
       const tdAlt=document.createElement('td'); tdAlt.textContent=fmtAlt(a.alt_baro); tr.appendChild(tdAlt);
       const tdSpd=document.createElement('td'); tdSpd.textContent=fmtGs(a.gs); tr.appendChild(tdSpd);
       tr.appendChild(makeHeadingCell(a.track));
-      const tdDist=document.createElement('td'); tdDist.textContent= a._dist_nm!=null ? fmtNm(a._dist_nm) : '—'; tr.appendChild(tdDist);
+      const tdDist=document.createElement('td'); tdDist.textContent= a.distance_nm!=null ? fmtNm(a.distance_nm) : '—'; tr.appendChild(tdDist);
       const tdSeen=document.createElement('td'); tdSeen.textContent=fmtSeen(a.seen); tr.appendChild(tdSeen);
       const tdAct=document.createElement('td'); tdAct.className='row-actions';
       const btn = document.createElement('a'); btn.className='iconbtn'; btn.href=fr24FlightUrl(flight); btn.target='_blank'; btn.rel='noopener'; btn.title='Åpne i Flightradar24'; btn.innerHTML=ICON_SEARCH; btn.addEventListener('click', ev=>ev.stopPropagation()); tdAct.appendChild(btn); tr.appendChild(tdAct);
@@ -839,38 +524,25 @@ function fmt(val, suffix=''){
     async function tick(){
       try{
         $error().hidden=true;
-        const { json:data, url:activeUrl } = await fetchAircraft();
-        const now=Date.now()/1000;
-        const all = Array.isArray(data.aircraft) ? data.aircraft : [];
-        const withPos = all.filter(a=>a.lat!=null && a.lon!=null);
-        const fresh = withPos.filter(a=> (a.seen!=null? a.seen : (now-(a.seen_pos||now))) <= MAX_SEEN_S);
-        let list = fresh
-          .map(a=>{ a._dist_km=haversineKm(ORIGIN,{lat:a.lat,lon:a.lon}); a._dist_nm=km2nm(a._dist_km); return a; })
-          .filter(a=> a._dist_km <= MAX_DIST_KM)
-          .sort((x,y)=> x._dist_km - y._dist_km);
+        const data = await fetchAircraft();
+        const list = data.aircraft || [];
 
         const hasRows = list.length>0;
         $wrap().hidden = !hasRows;
         $empty().hidden = hasRows;
         render(list);
         $count().textContent = list.length;
-        $updated().textContent = `oppdatert ${fmtUpdated()} • totalt: ${all.length} pos:${withPos.length} ferske:${fresh.length}`;
+        $updated().textContent = `oppdatert ${fmtUpdated()}`;
         }catch(err){
-        /*console.error('ADS-B feil:', err);
+        console.error('ADS-B feil:', err);
         $error().hidden=false;
-        $updated().textContent='feil ved oppdatering';*/
+        $updated().textContent='feil ved oppdatering';
       }
     }
 
-
     tick();
-    setInterval(tick, 5000);
+    setInterval(tick, 20000); // Update every 20 seconds
   })();
-
-function googleFlightUrl(f){
-  const q = encodeURIComponent((f||'').trim());
-  return `https://www.google.com/search?q=${q}`;
-}
   </script>
 
   <!-- Flo & fjære (uendret funksjonelt) -->
@@ -884,514 +556,140 @@ function googleFlightUrl(f){
     hentToNeste(); setInterval(hentToNeste, 30*60*1000);
   })();
   </script>
-<script>
-(function(){
-  const CLIENT_NAME = "ramsoy-index-prod";
-  const QUAY_RAMSOY   = "NSR:Quay:71232";
-  const QUAY_SANDVIKS = "NSR:Quay:71896";
 
-  const depEl = document.getElementById("entur-next-dep");
-  const updEl = document.getElementById("entur-updated");
+  <!-- Entur backend service integration -->
+  <script>
+  (function(){
+      const API_URL = 'entur_api.php';
+      const depEl = document.getElementById("entur-next-dep");
+      const updEl = document.getElementById("entur-updated");
 
-  // Utils
-  const fmtClock   = iso => iso ? new Intl.DateTimeFormat('nb-NO',{hour:'2-digit',minute:'2-digit'}).format(new Date(iso)) : null;
-  const fmtUpdated = d => `Oppdatert ${new Intl.DateTimeFormat('nb-NO',{hour:'2-digit',minute:'2-digit'}).format(d)}`;
-  const simplifyText = txt => (txt||"").replace(/\s+via\s+.*/i, "");
+      const ICON_PIN = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/></svg>`;
 
-  function enturStopUrl(stopPlaceId){
-    return `https://entur.no/nearby-stop-place-detail?id=${encodeURIComponent(stopPlaceId)}`;
-  }
-  const ICON_PIN  = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/></svg>`;
+      function formatTime(isoString) {
+          if (!isoString) return '—';
+          const depTime = new Date(isoString);
+          const now = new Date();
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+          const depDate = new Date(depTime.getFullYear(), depTime.getMonth(), depTime.getDate());
 
-  async function gql(query, variables){
-    const r = await fetch("https://api.entur.io/journey-planner/v3/graphql",{
-      method:"POST",
-      headers:{ "Content-Type":"application/json", "ET-Client-Name": CLIENT_NAME },
-      body: JSON.stringify({ query, variables })
-    });
-    if(!r.ok) throw new Error("GraphQL feilet: "+r.status);
-    const payload = await r.json();
-    if(payload.errors) throw new Error(payload.errors.map(e=>e.message).join("; "));
-    return payload.data;
-  }
+          const timeStr = new Intl.DateTimeFormat('nb-NO', {
+              hour: '2-digit',
+              minute: '2-digit',
+              timeZone: 'Europe/Oslo'
+          }).format(depTime);
 
-  // Quay -> StopPlace (for riktige lenker)
-  async function quayToStopPlace(id){
-    if (id.startsWith("NSR:StopPlace:")) return id;
-    if (id.startsWith("NSR:Quay:")){
-      const q = `query ($id:String!){ quay(id:$id){ stopPlace{ id } } }`;
-      const d = await gql(q,{id});
-      return d?.quay?.stopPlace?.id || id;
-    }
-    return id;
-  }
+          if (depDate.getTime() === today.getTime()) {
+              return timeStr;
+          } else if (depDate.getTime() === tomorrow.getTime()) {
+              return timeStr + ' <span class="badge-tomorrow">(i morgen)</span>';
+          } else {
+              const dayStr = new Intl.DateTimeFormat('nb-NO', {
+                  weekday: 'short',
+                  day: 'numeric',
+                  timeZone: 'Europe/Oslo'
+              }).format(depTime);
+              return timeStr + ' <span class="badge-tomorrow">(' + dayStr + ')</span>';
+          }
+      }
 
-  // HENT tavle + DATED SERVICE JOURNEY (datofestet avgang) med alle stopp og sanntid
-async function fetchBoard(stopPlaceId, hours=120){
-  const q = `
-    query ($id:String!, $start:DateTime!, $range:Int!, $n:Int!){
-      stopPlace(id:$id){
-        estimatedCalls(startTime:$start, timeRange:$range, numberOfDepartures:$n){
-          quay { id }   # origin
-          realtime
-          cancellation
-          predictionInaccurate
-          aimedDepartureTime
-          expectedDepartureTime
-          actualDepartureTime
-          destinationDisplay { frontText }
+      function renderBidirectionalDepartures(data) {
+          console.log('Rendering Entur departures:', data);
 
-          # Preferert: datofestet reise (kan være null)
-          datedServiceJourney{
-            id
-            estimatedCalls{
-              quay { id }
-              realtime
-              cancellation
-              predictionInaccurate
-              aimedDepartureTime
-              expectedDepartureTime
-              actualDepartureTime
-              aimedArrivalTime
-              expectedArrivalTime
-              actualArrivalTime
-            }
+          const { bidirectionalDepartures, stopRamsoyUrl, stopSandviksUrl } = data;
+
+          if (!bidirectionalDepartures || bidirectionalDepartures.length === 0) {
+              depEl.innerHTML = '<div>Ingen avganger funnet</div>';
+              return;
           }
 
-          # Fallback: «vanlig» serviceJourney
-          serviceJourney{
-            id
-            estimatedCalls{
-              quay { id }
-              realtime
-              cancellation
-              predictionInaccurate
-              aimedDepartureTime
-              expectedDepartureTime
-              actualDepartureTime
-              aimedArrivalTime
-              expectedArrivalTime
-              actualArrivalTime
-            }
+          let html = '';
+
+          bidirectionalDepartures.forEach(item => {
+              const dep = item.departure;
+              const direction = item.direction;
+              const isVerified = item.verified;
+              const isFallback = item.isFallback || false;
+
+              // Fix: Handle both "Ramsøy" and "Ramsy" (typo in API response)
+              const isFromRamsoy = direction.includes('Ramsy →') || direction.includes('Ramsøy →');
+              const stopUrl = isFromRamsoy ? stopRamsoyUrl : stopSandviksUrl;
+              const actionBtn = `<a class="iconbtn" href="${stopUrl}" target="_blank" rel="noopener" title="Åpne i Entur – ${direction}">${ICON_PIN}</a>`;
+
+              // Format departure time
+              const depTimeFormatted = formatTime(dep.time);
+
+              // Format on-time status with enhanced logic
+              let onTimeStatus = '';
+              if (dep.onTimeStatus) {
+                  onTimeStatus = ` (${dep.onTimeStatus})`;
+              }
+
+              // Format arrival info with verification status
+              let arrivalInfo = '';
+              if (dep.arrivalTime && dep.arrivalTime !== dep.time) {
+                  const arrivalTimeFormatted = formatTime(dep.arrivalTime);
+                  // Extract destination from direction for arrival info
+                  const destination = direction.includes('Sandviksberget') ? 'Sandviksberget' : 'Ramsøy';
+                  arrivalInfo = ` • Ankomst ${destination} ${arrivalTimeFormatted}`;
+              }
+
+              // Add fallback note if this is unverified route data
+              let fallbackNote = '';
+              if (isFallback && !isVerified) {
+                  const tooltip = 'title="Entur mangler informasjon om mellomstopp, så anløpet kan ikke bekreftes."';
+                  fallbackNote = ` • <span ${tooltip}>anløp ikke bekreftet</span>`;
+              }
+
+              // Build the complete line with enhanced status information
+              html += `<div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin: 0.4rem 0px;">`;
+              html += `<span><strong style="color:#a9b3bd;font-weight:600;margin-right:.3rem;">${direction}:</strong> ${depTimeFormatted} – ${dep.destination}${onTimeStatus}${arrivalInfo}${fallbackNote}</span>`;
+              html += `<div class="row-actions">${actionBtn}</div>`;
+              html += `</div>`;
+          });
+
+          console.log('Generated HTML:', html);
+          depEl.innerHTML = html;
+      }
+
+      async function updateEntur(){
+          try {
+              console.log('Starting Entur update...');
+              updEl.textContent = "oppdaterer…";
+
+              const url = `${API_URL}?bidirectional=true&_=${Date.now()}`;
+              console.log('Fetching Entur data from:', url);
+
+              const response = await fetch(url);
+              if (!response.ok) {
+                  throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+              }
+
+              const result = await response.json();
+              console.log('Entur API response:', result);
+
+              if (result.success) {
+                  renderBidirectionalDepartures(result.data);
+                  updEl.textContent = `oppdatert ${result.updated}`;
+                  console.log('Entur update successful');
+              } else {
+                  throw new Error(result.error || 'Ukjent feil fra API');
+              }
+          } catch (error) {
+              console.error('Entur frontend error:', error);
+              depEl.innerHTML = '<div style="color: #ffb3b3;">Kunne ikke hente avganger: ' + error.message + '</div>';
+              updEl.textContent = "feil ved oppdatering";
           }
-        }
       }
-    }`;
-  const vars = {
-    id: stopPlaceId,
-    start: new Date().toISOString(),
-    range: hours * 3600,
-    n: 120
-  };
-  const d = await gql(q, vars);
-  return d?.stopPlace?.estimatedCalls ?? [];
-}
 
-  function minutesDiff(aIso, bIso){
-    if(!aIso || !bIso) return 0;
-    return Math.round((new Date(aIso) - new Date(bIso)) / 60000);
-  }
-  function deriveStatus(call){
-    if (call.cancellation) return "Kansellert";
-    const planned = call.aimedDepartureTime;
-    const live    = call.actualDepartureTime || call.expectedDepartureTime || planned;
-    const delta   = minutesDiff(live, planned);
-    if (Math.abs(delta) >= 1) return `${delta>0?"Forsinket":"Framskyndet"} ${delta>0?"+":""}${delta} min`;
-    if (call.realtime) return "I rute";
-    return "Planlagt";
-  }
+      // Load initially and set up refresh
+      console.log('Initializing Entur integration...');
+      updateEntur();
+      setInterval(updateEntur, 60_000); // Refresh every minute
+  })();
+  </script>
 
-  // Finn origin-indeks i DSJ vha. både kai og (nær) avgangstid
-  function findOriginIndex(dsjCalls, originQuayId, outerDepIso){
-    if (!Array.isArray(dsjCalls) || !originQuayId || !outerDepIso) return -1;
-    const outerTs = new Date(outerDepIso).getTime();
-    const WITHIN_MS = 15*60*1000, FLOOR_MS = 5*60*1000;
-
-    // Strengt ±15 min
-    let bestIdx = -1, bestAbs = Infinity;
-    dsjCalls.forEach((c,i)=>{
-      if (c?.quay?.id !== originQuayId) return;
-      const iso = bestDep(c); if(!iso) return;
-      const diff = Math.abs(new Date(iso).getTime() - outerTs);
-      if (diff <= WITHIN_MS && diff < bestAbs){ bestAbs = diff; bestIdx = i; }
-    });
-    if (bestIdx >= 0) return bestIdx;
-
-    // Fallback: nærmeste som ikke er «for langt bak» (>= outer - 5 min)
-    let fbIdx = -1, fbAbs = Infinity;
-    dsjCalls.forEach((c,i)=>{
-      if (c?.quay?.id !== originQuayId) return;
-      const iso = bestDep(c); if(!iso) return;
-      const delta = new Date(iso).getTime() - outerTs;
-      if (delta >= -FLOOR_MS && Math.abs(delta) < fbAbs){ fbAbs = Math.abs(delta); fbIdx = i; }
-    });
-    return fbIdx;
-  }
-
-const bestDep = x => x?.actualDepartureTime || x?.expectedDepartureTime || x?.aimedDepartureTime || null;
-const bestArr = x => x?.actualArrivalTime   || x?.expectedArrivalTime   || x?.aimedArrivalTime   || null;
-
-// Finn origin-indeks i sekvensen (DSJ/SJ) ved å matche quay + (nær) avgangstid
-function findOriginIndex(seq, originQuayId, outerDepIso){
-  if (!Array.isArray(seq) || !originQuayId || !outerDepIso) return -1;
-  const outerTs = new Date(outerDepIso).getTime();
-  const WITHIN = 15*60*1000, FLOOR = 5*60*1000;
-
-  // Strengt ±15 min
-  let bestIdx = -1, bestAbs = Infinity;
-  for (let i=0;i<seq.length;i++){
-    const c = seq[i];
-    if (c?.quay?.id !== originQuayId) continue;
-    const iso = bestDep(c); if(!iso) continue;
-    const diff = Math.abs(new Date(iso).getTime() - outerTs);
-    if (diff <= WITHIN && diff < bestAbs){ bestAbs = diff; bestIdx = i; }
-  }
-  if (bestIdx >= 0) return bestIdx;
-
-  // Fallback: nærmeste som ikke er «for langt bak»
-  let fbIdx = -1, fbAbs = Infinity;
-  for (let i=0;i<seq.length;i++){
-    const c = seq[i];
-    if (c?.quay?.id !== originQuayId) continue;
-    const iso = bestDep(c); if(!iso) continue;
-    const delta = new Date(iso).getTime() - outerTs;
-    if (delta >= -FLOOR && Math.abs(delta) < fbAbs){ fbAbs = Math.abs(delta); fbIdx = i; }
-  }
-  return fbIdx;
-}
-
-// Finn LEG der vi bruker SISTE origin-forekomst før target (sanntid hele veien)
-function computeLegAfterLastOriginBeforeTarget(outerCall, targetQuayId){
-  // velg DSJ hvis finnes, ellers SJ
-  let seq = outerCall?.datedServiceJourney?.estimatedCalls;
-  if (!Array.isArray(seq) || seq.length === 0){
-    seq = outerCall?.serviceJourney?.estimatedCalls || [];
-  }
-  const originQuayId = outerCall?.quay?.id || null;
-  const outerDepIso  = bestDep(outerCall);
-  if (!seq.length || !originQuayId || !outerDepIso) return null;
-
-  // 1) finn "vår" origin i sekvensen
-  const originIdx0 = findOriginIndex(seq, originQuayId, outerDepIso);
-  if (originIdx0 < 0) return null;
-
-  // 2) finn første target ETTER originIdx0
-  let targetIdx = -1;
-  for (let i = originIdx0 + 1; i < seq.length; i++){
-    if (seq[i]?.quay?.id === targetQuayId){ targetIdx = i; break; }
-  }
-  if (targetIdx < 0) return null;
-
-  // 3) gå bakover fra target for å finne SISTE forekomst av origin før target
-  let depIdx = originIdx0;
-  for (let i = targetIdx - 1; i > originIdx0; i--){
-    if (seq[i]?.quay?.id === originQuayId){ depIdx = i; break; }
-  }
-
-  const depCall = seq[depIdx];
-  const depIso  = bestDep(depCall);
-  const arrIso  = bestArr(seq[targetIdx]);
-  if (!depIso || !arrIso) return null;
-  if (new Date(arrIso).getTime() <= new Date(depIso).getTime()) return null; // må være etter dep
-
-  return { depIso, arrIso, depCallForStatus: depCall };
-}
-
-// Leg-finner som IGNORERER tavletid: velg første target i sekvensen,
-// så siste forekomst av origin FØR target. Brukes for planlagt fallback.
-function computeLegAnyOriginBeforeTarget(call, originQuayId, targetQuayId){
-  let seq = call?.datedServiceJourney?.estimatedCalls;
-  if (!Array.isArray(seq) || !seq.length){
-    seq = call?.serviceJourney?.estimatedCalls || [];
-  }
-  if (!seq.length) return null;
-  const tIdx = seq.findIndex(c => c?.quay?.id === targetQuayId);
-  if (tIdx <= 0) return null;
-  let depIdx = -1;
-  for (let i = tIdx - 1; i >= 0; i--){
-    if (seq[i]?.quay?.id === originQuayId){ depIdx = i; break; }
-  }
-  if (depIdx < 0) return null;
-  const depIso = bestDep(seq[depIdx]);
-  const arrIso = bestArr(seq[tIdx]);
-  if (!depIso || !arrIso) return null;
-  if (new Date(arrIso).getTime() <= new Date(depIso).getTime()) return null;
-  return { depIso, arrIso, depCallForStatus: seq[depIdx] };
-}
-
-// --- Unified renderer for a single departure line ---
-function appendDepartureLine({item, stopId, title, targetName, isFallback}){
-  const depClock = fmtClock(item.depIso) + labelIfTomorrow(item.depIso);
-  const dest = simplifyText(item.call?.destinationDisplay?.frontText || "");
-  const status = deriveStatus(item.depCallForStatus || item.call || {});
-  const arrClock = item.arrToTarget ? ` • Ankomst ${targetName} ${fmtClock(item.arrToTarget)}` : "";
-  const tooltip = '<span title="Entur mangler informasjon om mellomstopp, så anløpet kan ikke bekreftes.">anløp ' + targetName + ' ikke bekreftet</span>';
-  const note = isFallback ? ` • ${tooltip}` : "";
-  const txt = `${depClock} – ${dest} (${status})${arrClock}${note}`;
-  depEl.appendChild(makeLine(txt, stopId, title));
-}
-
-
-
-
-
-// Velg neste avgang fra A som faktisk besøker B, der vi tar SISTE avgang før target
-function pickNextWithArrival(calls, targetQuayId){
-  const now = Date.now();
-  const cand = (calls||[])
-    .map(c => {
-      const leg = computeLegAfterLastOriginBeforeTarget(c, targetQuayId);
-      if (!leg) return null;
-      if (new Date(leg.depIso).getTime() < now) return null; // kun framtid
-      return { call: c, depIso: leg.depIso, arrToTarget: leg.arrIso, depCallForStatus: leg.depCallForStatus };
-    })
-    .filter(Boolean)
-    .sort((a,b) => new Date(a.depIso) - new Date(b.depIso));
-  return cand[0] || null;
-}
-
-
-// Fallback: neste N planlagte avganger fra tavla (ingen garanti for anløp på mål)
-function pickUpcomingBasic(calls, maxCount = 1){
-  const now = Date.now();
-  return (calls || [])
-    .map(c => {
-      const depIso = bestDep(c);
-      if (!depIso) return null;
-      const ts = new Date(depIso).getTime();
-      if (ts < now) return null; // bare framtid
-      return { call: c, depIso };
-    })
-    .filter(Boolean)
-    .sort((a,b) => new Date(a.depIso) - new Date(b.depIso))
-    .slice(0, maxCount);
-}
-
-// Velg neste planlagte avgang som ser ut til å gå MOT target (basert på destinasjonstekst)
-// Skipper runder som bare returnerer til origin (dest == originName)
-function pickPlannedToward(calls, originName, targetPatterns, maxCount=1){
-  const now = Date.now();
-  const pats = (Array.isArray(targetPatterns) ? targetPatterns : [targetPatterns])
-               .filter(Boolean).map(p => new RegExp(p, 'i'));
-  const ok = (txt) => pats.length ? pats.some(rx => rx.test(txt||"")) : true;
-  return (calls||[])
-    .map(c => {
-      const depIso = bestDep(c); if (!depIso) return null;
-      const ts = new Date(depIso).getTime(); if (ts < now) return null;
-      const dest = (c.destinationDisplay?.frontText || "").trim();
-      return { call: c, depIso, dest };
-    })
-    .filter(Boolean)
-    .filter(o => o.dest !== originName)      // skip "tilbake til origin"-turer
-    .filter(o => ok(o.dest))                 // helst mot target
-    .sort((a,b) => new Date(a.depIso) - new Date(b.depIso))
-    .slice(0, maxCount);
-}
-
-
-
-
-
-// RELAXED: finn neste avgang som når target ved å se i hele reise-sekvensen
-function pickNextWithArrivalRelaxed(calls, originQuayId, targetQuayId){
-  const now = Date.now();
-  for (const outerCall of (calls || [])){
-    const outerDepIso = bestDep(outerCall);
-    if (!outerDepIso || new Date(outerDepIso).getTime() < now) continue;
-
-    let seq = outerCall?.datedServiceJourney?.estimatedCalls;
-    if (!Array.isArray(seq) || !seq.length){
-      seq = outerCall?.serviceJourney?.estimatedCalls || [];
-    }
-    if (!seq.length) continue;
-
-    const tIdx = seq.findIndex(c => c?.quay?.id === targetQuayId);
-    if (tIdx <= 0) continue;
-
-    let depIdx = -1;
-    for (let i = tIdx - 1; i >= 0; i--){
-      if (seq[i]?.quay?.id === originQuayId){ depIdx = i; break; }
-    }
-    if (depIdx < 0) continue;
-
-    const depIso = bestDep(seq[depIdx]);
-    const arrIso = bestArr(seq[tIdx]);
-    if (!depIso || !arrIso) continue;
-    if (new Date(arrIso).getTime() <= new Date(depIso).getTime()) continue;
-    if (new Date(depIso).getTime() < now) continue;
-
-    return { call: outerCall, depIso, arrToTarget: arrIso, depCallForStatus: seq[depIdx] };
-  }
-  return null;
-}
-
-// Planlagt fallback som KREVER at reisen faktisk når target via reise-sekvensen
-function pickPlannedWithLeg(calls, targetQuayId){
-  const now = Date.now();
-  for (const c of (calls||[])){
-    const depIso0 = bestDep(c);
-    if (!depIso0) continue;
-    if (new Date(depIso0).getTime() < now) continue;
-    const originId = c?.quay?.id; // origin kai for tavleraden
-    const leg = computeLegAnyOriginBeforeTarget(c, originId, targetQuayId);
-    if (!leg) continue;
-    return { call: c, depIso: leg.depIso, arrToTarget: leg.arrIso, depCallForStatus: leg.depCallForStatus };
-  }
-  return null;
-}
-
-// Finn neste forekomst av origin (samme kai) i reise-sekvensen etter en gitt avgangstid
-function nextOriginAfter(call, originQuayId, afterIso){
-  let seq = call?.datedServiceJourney?.estimatedCalls;
-  if (!Array.isArray(seq) || !seq.length){
-    seq = call?.serviceJourney?.estimatedCalls || [];
-  }
-  if (!seq.length) return null;
-  const afterTs = new Date(afterIso).getTime();
-  // Finn alle forekomster av origin etter 'afterIso'
-  const candidates = seq.filter(c => c?.quay?.id === originQuayId && bestDep(c))
-                        .map(c => ({ c, ts: new Date(bestDep(c)).getTime() }))
-                        .filter(o => o.ts > afterTs)
-                        .sort((a,b)=>a.ts-b.ts);
-  if (!candidates.length) return null;
-  return bestDep(candidates[0].c);
-}
-
-
-
-
-
-
-
-// Label "(i morgen)" på tider som er neste lokale kalenderdag
-function labelIfTomorrow(iso){
-  if (!iso) return "";
-  const tz = 'Europe/Oslo';
-  try{
-    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit' });
-    const toYMD = (d) => {
-      const parts = fmt.formatToParts(d);
-      const y = parts.find(p=>p.type==='year').value;
-      const m = parts.find(p=>p.type==='month').value;
-      const dd= parts.find(p=>p.type==='day').value;
-      return `${y}-${m}-${dd}`;
-    };
-    const todayY = toYMD(new Date());
-    const [Y,M,D] = todayY.split('-').map(Number);
-    const baseUTCNoon = Date.UTC(Y, M-1, D, 12, 0, 0);
-    const tomorrow = new Date(baseUTCNoon + 24*3600*1000);
-    const depY = toYMD(new Date(iso));
-    const tomorrowY = toYMD(tomorrow);
-    return depY === tomorrowY ? ' <span class="badge-tomorrow">(i morgen)</span>' : "";
-  }catch(e){
-    return "";
-  }
-}
-
-
-  
-
-
-
-
-async function updateEntur(){
-  try{
-    const stopR = await quayToStopPlace(QUAY_RAMSOY);
-    const stopS = await quayToStopPlace(QUAY_SANDVIKS);
-
-    const [boardR, boardS] = await Promise.all([
-      fetchBoard(stopR),  // FRA Ramsøy
-      fetchBoard(stopS)   // FRA Sandviksberget
-    ]);
-
-    let reasonR = 'strict', reasonS = 'strict';
-    let nextR = pickNextWithArrival(boardR, QUAY_SANDVIKS);
-    let nextS = pickNextWithArrival(boardS, QUAY_RAMSOY);
-
-    if (!nextR){ nextR = pickNextWithArrivalRelaxed(boardR, QUAY_RAMSOY, QUAY_SANDVIKS); if (nextR) reasonR='relaxed'; }
-    if (!nextS){ nextS = pickNextWithArrivalRelaxed(boardS, QUAY_SANDVIKS, QUAY_RAMSOY); if (nextS) reasonS='relaxed'; }
-
-    if (!nextR){ nextR = pickPlannedWithLeg(boardR, QUAY_SANDVIKS); if (nextR) reasonR='planned-leg'; }
-    if (!nextS){ nextS = pickPlannedWithLeg(boardS, QUAY_RAMSOY); if (nextS) reasonS='planned-leg'; }
-
-    // Plain planned as last resort
-    if (!nextR){
-      const fb = pickUpcomingBasic(boardR,1)[0];
-      if (fb){
-        nextR = { call: fb.call, depIso: fb.depIso, arrToTarget: null, depCallForStatus: fb.call, fallbackTarget: "Sandviksberget" };
-        reasonR = 'planned-plain';
-      }
-    }
-    if (!nextS){
-      const fb = pickUpcomingBasic(boardS,1)[0];
-      if (fb){
-        nextS = { call: fb.call, depIso: fb.depIso, arrToTarget: null, depCallForStatus: fb.call, fallbackTarget: "Ramsøy" };
-        reasonS = 'planned-plain';
-      }
-    }
-
-    depEl.innerHTML = '';
-
-    if (nextR){
-      //console.debug('[ENTUR] Ramsøy→Sandviksberget strategy:', reasonR, nextR);
-      appendDepartureLine({ item: nextR, stopId: stopR, title: "Fra Ramsøy → Sandviksberget", targetName: "Sandviksberget", isFallback: reasonR!=='strict' && reasonR!=='relaxed' });
-    } else {
-      depEl.appendChild(makeLine("Ingen avganger som stopper på Sandviksberget", stopR, "Fra Ramsøy → Sandviksberget"));
-    }
-
-    if (nextS){
-      //console.debug('[ENTUR] Sandviksberget→Ramsøy strategy:', reasonS, nextS);
-      appendDepartureLine({ item: nextS, stopId: stopS, title: "Fra Sandviksberget → Ramsøy", targetName: "Ramsøy", isFallback: reasonS!=='strict' && reasonS!=='relaxed' });
-    } else {
-      depEl.appendChild(makeLine("Ingen avganger som stopper på Ramsøy", stopS, "Fra Sandviksberget → Ramsøy"));
-    }
-
-    updEl.textContent = fmtUpdated(new Date());
-  }catch(e){
-    console.error(e);
-    depEl.textContent = "Kunne ikke hente data";
-    updEl.textContent = "";
-  }
-}
-function enturStopUrl(stopPlaceId){
-  return `https://entur.no/nearby-stop-place-detail?id=${encodeURIComponent(stopPlaceId)}`;
-}
-
-function makeLine(text, stopPlaceId, label){
-  const line = document.createElement('div');
-  line.style.display = 'flex';
-  line.style.alignItems = 'center';
-  line.style.justifyContent = 'space-between';
-  line.style.gap = '.5rem';
-  line.style.margin = '.4rem 0';
-
-  const left = document.createElement('span');
-  left.innerHTML = `<strong style="color:#a9b3bd;font-weight:600;margin-right:.3rem;">${label}:</strong> ${text || "Ingen avganger"}`;
-  line.appendChild(left);
-
-  if (stopPlaceId){
-    const a = document.createElement('a');
-    a.className = 'iconbtn';
-    a.href = enturStopUrl(stopPlaceId);
-    a.target = '_blank';
-    a.rel = 'noopener';
-    a.title = `Åpne i Entur – ${label}`;
-    a.innerHTML = ICON_PIN;
-    const act = document.createElement('div');
-    act.className = 'row-actions';
-    act.appendChild(a);
-    line.appendChild(act);
-  }
-  return line;
-}
-
-// støtte hvis noe i koden kaller feil casing:
-const makeline = makeLine;
-
-  updateEntur();
-  setInterval(updateEntur, 60_000);
-})();
-</script>
 <!-- Script for grafene -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
