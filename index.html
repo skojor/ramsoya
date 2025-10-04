@@ -969,9 +969,18 @@ function googleFlightUrl(f){
               // Format on-time status (including "I rute")
               const onTimeStatus = dep.onTimeStatus ? ` (${dep.onTimeStatus})` : '';
 
-              // Build the complete line matching the expected format
+              // Format arrival info
+              let arrivalInfo = '';
+              if (dep.arrivalTime && dep.arrivalTime !== dep.time) {
+                  const arrivalTimeFormatted = formatTime(dep.arrivalTime);
+                  // Extract destination from direction for arrival info
+                  const destination = direction.includes('Sandviksberget') ? 'Sandviksberget' : 'Ramsøy';
+                  arrivalInfo = ` • Ankomst ${destination} ${arrivalTimeFormatted}`;
+              }
+
+              // Build the complete line matching the expected format: "13:49 – Sandviksberget (Forsinket +49 min) • Ankomst Sandviksberget 14:31"
               html += `<div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin: 0.4rem 0px;">`;
-              html += `<span><strong style="color:#a9b3bd;font-weight:600;margin-right:.3rem;">${direction}:</strong> ${depTimeFormatted}${onTimeStatus}</span>`;
+              html += `<span><strong style="color:#a9b3bd;font-weight:600;margin-right:.3rem;">${direction}:</strong> ${depTimeFormatted} – ${dep.destination}${onTimeStatus}${arrivalInfo}</span>`;
               html += `<div class="row-actions">${actionBtn}</div>`;
               html += `</div>`;
           });
