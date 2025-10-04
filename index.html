@@ -590,15 +590,41 @@
   // --- Bilde + status ---
   function refreshImage(){
     const img = new Image();
-    img.onload = async () => { camImg.src = img.src; lastImageTs = Date.now(); await updateImageCaptureTime(); if (!imageCaptureTs) imageCaptureTs = lastImageTs; updateStatus(); };
+    img.onload = async () => {
+      camImg.src = img.src;
+      lastImageTs = Date.now();
+      await updateImageCaptureTime();
+      updateStatus();
+    };
     img.onerror = () => {};
     img.src = bust(IMG_URL);
   }
   async function updateImageCaptureTime(){
-    try{ const res = await fetch(IMG_URL, { method: 'HEAD', cache: 'no-store' }); const lm = res.headers.get('Last-Modified'); if (lm){ const t = new Date(lm).getTime(); if (Number.isFinite(t)) imageCaptureTs = t; } }catch(e){}
+    try{
+      const res = await fetch(IMG_URL, { method: 'HEAD', cache: 'no-store' });
+      const lm = res.headers.get('Last-Modified');
+      if (lm){
+        const t = new Date(lm).getTime();
+        if (Number.isFinite(t)) {
+          imageCaptureTs = t;
+        }
+      }
+    }catch(e){
+      console.error("Could not fetch image metadata:", e);
+    }
   }
   function humanAge(ms){ const s = Math.max(0, Math.floor(ms/1000)); if (s<60) return `${s}s`; const m=Math.floor(s/60), r=s%60; if (m<60) return `${m}m ${r}s`; const h=Math.floor(m/60), mr=m%60; return `${h}t ${mr}m`; }
-  function updateStatus(){ const baseTs = imageCaptureTs || lastImageTs; if (!baseTs){ statusText.textContent = "Laster…"; statusEl.className = "status-pill warn"; return; } const ageSec = Math.floor((Date.now()-baseTs)/1000); statusEl.className = "status-pill "+(ageSec>300?"bad":ageSec>120?"warn":"ok"); statusText.textContent = `Bilde ${humanAge(Date.now()-baseTs)} gammelt`; }
+  function updateStatus(){
+    // Only use imageCaptureTs if available, otherwise show loading state
+    if (!imageCaptureTs){
+      statusText.textContent = "Laster…";
+      statusEl.className = "status-pill warn";
+      return;
+    }
+    const ageSec = Math.floor((Date.now() - imageCaptureTs) / 1000);
+    statusEl.className = "status-pill " + (ageSec > 300 ? "bad" : ageSec > 120 ? "warn" : "ok");
+    statusText.textContent = `Bilde ${humanAge(Date.now() - imageCaptureTs)} gammelt`;
+  }
 
   // --- Væroverlay ---
   function renderWeather(data){ overlayEl.innerHTML = ""; const wrap=(title,lines)=>{ const section=document.createElement("section"); if(title){ const h=document.createElement("h3"); h.textContent=title; section.appendChild(h); } if(Array.isArray(lines)&&lines.length){ const ul=document.createElement("ul"); for(const line of lines){ const li=document.createElement("li"); li.textContent=String(line); ul.appendChild(li);} section.appendChild(ul);} return section;}; const normalized=[]; if(Array.isArray(data)){ for(const entry of data){ if(entry&&typeof entry==="object"&&"data" in entry){ normalized.push({ title: entry.label||"", lines: Array.isArray(entry.data)?entry.data:[String(entry.data??"")] }); } else normalized.push({ title: "", lines:[String(entry)]}); } } else if (data&&typeof data==="object"&&"data" in data){ normalized.push({ title:data.label||"", lines:Array.isArray(data.data)?data.data:[String(data.data??"")]}); } else if (data!=null){ normalized.push({ title:"", lines:[String(data)]}); } for(const block of normalized){ overlayEl.appendChild(wrap(block.title, block.lines)); } overlayEl.hidden = overlayEl.childElementCount===0; }
