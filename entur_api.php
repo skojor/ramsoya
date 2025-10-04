@@ -16,30 +16,9 @@ class EnturService {
     private const QUAY_RAMSOY = "NSR:Quay:71232";
     private const QUAY_SANDVIKS = "NSR:Quay:71233";
 
+    // Legacy method for backward compatibility
     public function getDepartures($hours = 120) {
-        error_log("getDepartures called");
-        try {
-            error_log("Converting quay to stop place");
-            $stopPlaceId = $this->quayToStopPlace(self::QUAY_RAMSOY);
-            error_log("Stop place ID: " . $stopPlaceId);
-
-            error_log("Fetching board data");
-            $data = $this->fetchBoard($stopPlaceId, $hours);
-            error_log("Board data fetched successfully");
-
-            return [
-                'success' => true,
-                'data' => $data,
-                'updated' => date('H:i')
-            ];
-        } catch (Exception $e) {
-            error_log("Error in getDepartures: " . $e->getMessage());
-            return [
-                'success' => false,
-                'error' => $e->getMessage(),
-                'updated' => date('H:i')
-            ];
-        }
+        return $this->getBidirectionalDepartures($hours);
     }
 
     public function getBidirectionalDepartures($hours = 120) {
@@ -47,28 +26,74 @@ class EnturService {
             $stopRamsoy = $this->quayToStopPlace(self::QUAY_RAMSOY);
             $stopSandviks = $this->quayToStopPlace(self::QUAY_SANDVIKS);
 
-            // Fetch departures from both stops
-            $boardRamsoy = $this->fetchBoard($stopRamsoy, $hours);
-            $boardSandviks = $this->fetchBoard($stopSandviks, $hours);
+            // Fetch departures from both stops with full journey data
+            $boardRamsoy = $this->fetchBoardWithJourneys($stopRamsoy, $hours);
+            $boardSandviks = $this->fetchBoardWithJourneys($stopSandviks, $hours);
 
             $departures = [];
 
-            // Find next departure from Ramsøy to Sandviksberget
-            $nextFromRamsoy = $this->findBestDeparture($boardRamsoy['departures'], self::QUAY_SANDVIKS);
+            // Find next departure from Ramsøy to Sandviksberget with route verification
+            $nextFromRamsoy = $this->findNextWithArrival($boardRamsoy, self::QUAY_SANDVIKS);
             if ($nextFromRamsoy) {
                 $departures[] = [
                     'direction' => 'Fra Ramsøy → Sandviksberget',
-                    'departure' => $nextFromRamsoy
+                    'departure' => $nextFromRamsoy,
+                    'verified' => true
                 ];
+            } else {
+                // Fallback: planned departure with route verification
+                $fallbackFromRamsoy = $this->findPlannedWithLeg($boardRamsoy, self::QUAY_SANDVIKS);
+                if ($fallbackFromRamsoy) {
+                    $departures[] = [
+                        'direction' => 'Fra Ramsøy → Sandviksberget',
+                        'departure' => $fallbackFromRamsoy,
+                        'verified' => false,
+                        'isFallback' => true
+                    ];
+                } else {
+                    // Final fallback: just show next departure without route verification
+                    $basicFromRamsoy = $this->findBasicUpcoming($boardRamsoy);
+                    if ($basicFromRamsoy) {
+                        $departures[] = [
+                            'direction' => 'Fra Ramsøy → Sandviksberget',
+                            'departure' => $basicFromRamsoy,
+                            'verified' => false,
+                            'isFallback' => true
+                        ];
+                    }
+                }
             }
 
-            // Find next departure from Sandviksberget to Ramsøy
-            $nextFromSandviks = $this->findBestDeparture($boardSandviks['departures'], self::QUAY_RAMSOY);
+            // Find next departure from Sandviksberget to Ramsøy with route verification
+            $nextFromSandviks = $this->findNextWithArrival($boardSandviks, self::QUAY_RAMSOY);
             if ($nextFromSandviks) {
                 $departures[] = [
                     'direction' => 'Fra Sandviksberget → Ramsøy',
-                    'departure' => $nextFromSandviks
+                    'departure' => $nextFromSandviks,
+                    'verified' => true
                 ];
+            } else {
+                // Fallback: planned departure with route verification
+                $fallbackFromSandviks = $this->findPlannedWithLeg($boardSandviks, self::QUAY_RAMSOY);
+                if ($fallbackFromSandviks) {
+                    $departures[] = [
+                        'direction' => 'Fra Sandviksberget → Ramsøy',
+                        'departure' => $fallbackFromSandviks,
+                        'verified' => false,
+                        'isFallback' => true
+                    ];
+                } else {
+                    // Final fallback: just show next departure without route verification
+                    $basicFromSandviks = $this->findBasicUpcoming($boardSandviks);
+                    if ($basicFromSandviks) {
+                        $departures[] = [
+                            'direction' => 'Fra Sandviksberget → Ramsøy',
+                            'departure' => $basicFromSandviks,
+                            'verified' => false,
+                            'isFallback' => true
+                        ];
+                    }
+                }
             }
 
             return [
@@ -90,19 +115,219 @@ class EnturService {
         }
     }
 
-    private function findBestDeparture($departures, $targetQuay) {
+    // Simple fallback to find any upcoming departure (matching production behavior)
+    private function findBasicUpcoming($boardData) {
         $now = time();
+        $calls = $boardData['calls'] ?? [];
+        
+        foreach ($calls as $call) {
+            $depIso = $this->bestDep($call);
+            if (!$depIso) continue;
+            
+            $depTime = strtotime($depIso);
+            if ($depTime < $now) continue; // Only future departures
+            
+            return [
+                'time' => $depIso,
+                'destination' => $this->simplifyText($call['destinationDisplay']['frontText'] ?? ''),
+                'onTimeStatus' => $this->deriveStatus($call),
+                'mode' => $call['serviceJourney']['line']['transportMode'] ?? 'water',
+                'verified' => false
+            ];
+        }
+        
+        return null;
+    }
 
-        foreach ($departures as $dep) {
-            if (strtotime($dep['time']) > $now) {
-                // Check if this departure goes to the target quay
-                // For now, we'll return the first upcoming departure
-                // In a full implementation, we'd check the route
-                return $dep;
-            }
+    // Find next departure that actually reaches the target quay by analyzing journey sequences
+    private function findNextWithArrival($boardData, $targetQuay) {
+        $now = time();
+        $calls = $boardData['calls'] ?? [];
+
+        foreach ($calls as $call) {
+            $leg = $this->computeLegAfterLastOriginBeforeTarget($call, $targetQuay);
+            if (!$leg) continue;
+
+            $depTime = strtotime($leg['depIso']);
+            if ($depTime < $now) continue; // Only future departures
+
+            return [
+                'time' => $leg['depIso'],
+                'arrivalTime' => $leg['arrIso'],
+                'destination' => $this->simplifyText($call['destinationDisplay']['frontText'] ?? ''),
+                'onTimeStatus' => $this->deriveStatus($leg['depCallForStatus'] ?? $call),
+                'mode' => $call['serviceJourney']['line']['transportMode'] ?? 'water',
+                'verified' => true
+            ];
         }
 
         return null;
+    }
+
+    // Find planned departure that verifies it reaches target via journey sequence
+    private function findPlannedWithLeg($boardData, $targetQuay) {
+        $now = time();
+        $calls = $boardData['calls'] ?? [];
+
+        foreach ($calls as $call) {
+            $depIso = $this->bestDep($call);
+            if (!$depIso || strtotime($depIso) < $now) continue;
+
+            $originQuayId = $call['quay']['id'] ?? null;
+            $leg = $this->computeLegAnyOriginBeforeTarget($call, $originQuayId, $targetQuay);
+            if (!$leg) continue;
+
+            return [
+                'time' => $leg['depIso'],
+                'arrivalTime' => $leg['arrIso'],
+                'destination' => $this->simplifyText($call['destinationDisplay']['frontText'] ?? ''),
+                'onTimeStatus' => $this->deriveStatus($leg['depCallForStatus'] ?? $call),
+                'mode' => $call['serviceJourney']['line']['transportMode'] ?? 'water',
+                'verified' => false,
+                'fallbackNote' => 'anløp ikke bekreftet'
+            ];
+        }
+
+        return null;
+    }
+
+    // Compute leg from last origin before target (matching original complex logic)
+    private function computeLegAfterLastOriginBeforeTarget($call, $targetQuay) {
+        // Try datedServiceJourney first, then serviceJourney
+        $seq = $call['datedServiceJourney']['estimatedCalls'] ??
+               $call['serviceJourney']['estimatedCalls'] ?? [];
+
+        if (empty($seq)) return null;
+
+        $originQuayId = $call['quay']['id'] ?? null;
+        if (!$originQuayId) return null;
+
+        // Find target quay index
+        $targetIdx = -1;
+        foreach ($seq as $idx => $seqCall) {
+            if (($seqCall['quay']['id'] ?? null) === $targetQuay) {
+                $targetIdx = $idx;
+                break;
+            }
+        }
+
+        if ($targetIdx <= 0) return null;
+
+        // Find last occurrence of origin before target
+        $lastOriginIdx = -1;
+        for ($i = $targetIdx - 1; $i >= 0; $i--) {
+            if (($seq[$i]['quay']['id'] ?? null) === $originQuayId) {
+                $lastOriginIdx = $i;
+                break;
+            }
+        }
+
+        if ($lastOriginIdx < 0) return null;
+
+        $depIso = $this->bestDep($seq[$lastOriginIdx]);
+        $arrIso = $this->bestArr($seq[$targetIdx]);
+
+        if (!$depIso || !$arrIso) return null;
+
+        // Validate timing
+        if (strtotime($arrIso) <= strtotime($depIso)) return null;
+
+        return [
+            'depIso' => $depIso,
+            'arrIso' => $arrIso,
+            'depCallForStatus' => $seq[$lastOriginIdx]
+        ];
+    }
+
+    // Compute leg for any origin before target (fallback logic)
+    private function computeLegAnyOriginBeforeTarget($call, $originQuayId, $targetQuay) {
+        $seq = $call['datedServiceJourney']['estimatedCalls'] ??
+               $call['serviceJourney']['estimatedCalls'] ?? [];
+
+        if (empty($seq)) return null;
+
+        $targetIdx = -1;
+        foreach ($seq as $idx => $seqCall) {
+            if (($seqCall['quay']['id'] ?? null) === $targetQuay) {
+                $targetIdx = $idx;
+                break;
+            }
+        }
+
+        if ($targetIdx <= 0) return null;
+
+        $depIdx = -1;
+        for ($i = $targetIdx - 1; $i >= 0; $i--) {
+            if (($seq[$i]['quay']['id'] ?? null) === $originQuayId) {
+                $depIdx = $i;
+                break;
+            }
+        }
+
+        if ($depIdx < 0) return null;
+
+        $depIso = $this->bestDep($seq[$depIdx]);
+        $arrIso = $this->bestArr($seq[$targetIdx]);
+
+        if (!$depIso || !$arrIso) return null;
+        if (strtotime($arrIso) <= strtotime($depIso)) return null;
+
+        return [
+            'depIso' => $depIso,
+            'arrIso' => $arrIso,
+            'depCallForStatus' => $seq[$depIdx]
+        ];
+    }
+
+    // Get best departure time (actual > expected > aimed)
+    private function bestDep($call) {
+        return $call['actualDepartureTime'] ??
+               $call['expectedDepartureTime'] ??
+               $call['aimedDepartureTime'] ?? null;
+    }
+
+    // Get best arrival time (actual > expected > aimed)
+    private function bestArr($call) {
+        return $call['actualArrivalTime'] ??
+               $call['expectedArrivalTime'] ??
+               $call['aimedArrivalTime'] ?? null;
+    }
+
+    // Derive sophisticated status matching original logic
+    private function deriveStatus($call) {
+        if ($call['cancellation'] ?? false) {
+            return "Kansellert";
+        }
+
+        $planned = $call['aimedDepartureTime'] ?? null;
+        $live = $call['actualDepartureTime'] ??
+                $call['expectedDepartureTime'] ??
+                $planned;
+
+        if (!$planned || !$live) {
+            return "Planlagt";
+        }
+
+        $plannedTime = strtotime($planned);
+        $liveTime = strtotime($live);
+
+        if ($plannedTime === false || $liveTime === false) {
+            return "Planlagt";
+        }
+
+        $delta = round(($liveTime - $plannedTime) / 60);
+
+        if (abs($delta) >= 1) {
+            $sign = $delta > 0 ? "+" : "";
+            $status = $delta > 0 ? "Forsinket" : "Framskyndet";
+            return "{$status} {$sign}{$delta} min";
+        }
+
+        if ($call['realtime'] ?? false) {
+            return "I rute";
+        }
+
+        return "Planlagt";
     }
 
     private function gql($query, $variables = []) {
@@ -121,7 +346,7 @@ class EnturService {
                     'ET-Client-Name: ' . self::CLIENT_NAME
                 ],
                 'content' => $payload,
-                'timeout' => 10  // Add timeout
+                'timeout' => 10
             ]
         ]);
 
@@ -162,27 +387,62 @@ class EnturService {
         return $id;
     }
 
-    private function fetchBoard($stopPlaceId, $hours) {
+    private function fetchBoardWithJourneys($stopPlaceId, $hours) {
         $startTime = date('c');
 
+        // Enhanced query with full journey data for route analysis
         $query = '
-        query ($id: String!, $start: DateTime!) {
+        query ($id: String!, $start: DateTime!, $range: Int!, $n: Int!) {
           stopPlace(id: $id) {
             name
             estimatedCalls(
               startTime: $start
-              timeRange: 432000
-              numberOfDepartures: 50
+              timeRange: $range
+              numberOfDepartures: $n
             ) {
+              quay { id }
               realtime
+              cancellation
+              predictionInaccurate
               aimedDepartureTime
               expectedDepartureTime
+              actualDepartureTime
               aimedArrivalTime
               expectedArrivalTime
+              actualArrivalTime
               destinationDisplay { frontText }
+              
+              datedServiceJourney {
+                id
+                estimatedCalls {
+                  quay { id }
+                  realtime
+                  cancellation
+                  predictionInaccurate
+                  aimedDepartureTime
+                  expectedDepartureTime
+                  actualDepartureTime
+                  aimedArrivalTime
+                  expectedArrivalTime
+                  actualArrivalTime
+                }
+              }
+              
               serviceJourney {
                 id
                 line { id publicCode name transportMode }
+                estimatedCalls {
+                  quay { id }
+                  realtime
+                  cancellation
+                  predictionInaccurate
+                  aimedDepartureTime
+                  expectedDepartureTime
+                  actualDepartureTime
+                  aimedArrivalTime
+                  expectedArrivalTime
+                  actualArrivalTime
+                }
               }
             }
           }
@@ -190,66 +450,16 @@ class EnturService {
 
         $variables = [
             'id' => $stopPlaceId,
-            'start' => $startTime
+            'start' => $startTime,
+            'range' => $hours * 3600,
+            'n' => 120
         ];
 
         $data = $this->gql($query, $variables);
 
-        $departures = [];
-        $calls = $data['stopPlace']['estimatedCalls'] ?? [];
-
-        foreach ($calls as $call) {
-            $aimedTime = $call['aimedDepartureTime'];
-            $expectedTime = $call['expectedDepartureTime'] ?? $aimedTime;
-
-            // Calculate delay/on-time status
-            $onTimeStatus = '';
-            if ($aimedTime && $expectedTime && $aimedTime !== $expectedTime) {
-                $aimedTimestamp = strtotime($aimedTime);
-                $expectedTimestamp = strtotime($expectedTime);
-                $delayMinutes = round(($expectedTimestamp - $aimedTimestamp) / 60);
-
-                if ($delayMinutes > 0) {
-                    $onTimeStatus = "+{$delayMinutes} min";
-                } elseif ($delayMinutes < 0) {
-                    $onTimeStatus = "{$delayMinutes} min";
-                }
-                // If delayMinutes is 0, leave onTimeStatus empty (on time)
-            } else {
-                // No delay - show "I rute" (on schedule)
-                $onTimeStatus = "I rute";
-            }
-
-            // Get arrival time if available
-            $arrivalTime = null;
-            if (isset($call['expectedArrivalTime'])) {
-                $arrivalTime = $call['expectedArrivalTime'];
-            } elseif (isset($call['aimedArrivalTime'])) {
-                $arrivalTime = $call['aimedArrivalTime'];
-            }
-
-            $departure = [
-                'time' => $expectedTime,
-                'arrivalTime' => $arrivalTime,
-                'destination' => $this->simplifyText($call['destinationDisplay']['frontText'] ?? ''),
-                'onTimeStatus' => $onTimeStatus,
-                'mode' => $call['serviceJourney']['line']['transportMode'] ?? 'water'
-                // Removed 'line' - not needed as there's only one route
-            ];
-
-            if (strtotime($departure['time']) > time()) {
-                $departures[] = $departure;
-            }
-        }
-
-        usort($departures, function($a, $b) {
-            return strtotime($a['time']) <=> strtotime($b['time']);
-        });
-
         return [
-            'stopName' => $data['stopPlace']['name'] ?? 'Ramsøy',
-            'departures' => array_slice($departures, 0, 5),
-            'stopPlaceUrl' => $this->enturStopUrl($stopPlaceId)
+            'stopName' => $data['stopPlace']['name'] ?? 'Unknown',
+            'calls' => $data['stopPlace']['estimatedCalls'] ?? []
         ];
     }
 
