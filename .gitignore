@@ -69,3 +69,6 @@ uploads/
 # Configuration files with sensitive data
 config.local.php
 database.config.php
+
+# Ignore all files in the private directory (contains credentials and sensitive config)
+private/
