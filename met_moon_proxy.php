@@ -1,7 +1,7 @@
 <?php
 // met_moon_proxy.php
-// Proxy for MET Norway Sunrise Moon API (https://api.met.no/weatherapi/sunrise/3.0/moon)
-// Sikker og enkel, med liten cache. © deg selv 🤝
+// Enhanced proxy for MET Norway Sunrise Moon API with server-side processing
+// © 2025 Skorstad Engineering AS
 
 require("../private/met_forecastcred.php");
 
@@ -22,7 +22,6 @@ $upstreamUrl = $base . (empty($q) ? '' : ('?' . http_build_query($q)));
 $cacheKey  = sha1($upstreamUrl);
 $cacheDir  = sys_get_temp_dir() . '/met_moon_cache';
 $cacheFile = $cacheDir . '/' . $cacheKey . '.json';
-$metaFile  = $cacheDir . '/' . $cacheKey . '.headers';
 
 if (!is_dir($cacheDir)) {
   @mkdir($cacheDir, 0775, true);
@@ -31,14 +30,8 @@ if (!is_dir($cacheDir)) {
 // Returner cache hvis fersk
 if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < CACHE_TTL)) {
   header('Access-Control-Allow-Origin: *');
-  if (file_exists($metaFile)) {
-    // send lagrede headere (trygt under kontroll)
-    $headers = @json_decode(@file_get_contents($metaFile), true) ?: [];
-    foreach ($headers as $h) { header($h, false); }
-  } else {
-    header('Content-Type: application/json; charset=utf-8');
-    header('Cache-Control: public, max-age=' . (CACHE_TTL - (time() - filemtime($cacheFile))));
-  }
+  header('Content-Type: application/json; charset=utf-8');
+  header('Cache-Control: public, max-age=' . (CACHE_TTL - (time() - filemtime($cacheFile))));
   header('X-Cache: HIT');
   readfile($cacheFile);
   exit;
@@ -49,70 +42,176 @@ $ch = curl_init($upstreamUrl);
 curl_setopt_array($ch, [
   CURLOPT_RETURNTRANSFER => true,
   CURLOPT_FOLLOWLOCATION => true,
+  CURLOPT_MAXREDIRS => 3,
   CURLOPT_TIMEOUT => 10,
-  CURLOPT_USERAGENT => USER_AGENT,
+  CURLOPT_USERAGENT => 'RamsoyWeatherProxy/1.0 (skorstad.name)',
   CURLOPT_HTTPHEADER => [
     'Accept: application/json',
-    'Accept-Encoding: gzip, deflate'
-  ],
-  CURLOPT_ENCODING => '',
-  CURLOPT_SSL_VERIFYPEER => true,
-  CURLOPT_SSL_VERIFYHOST => 2,
-  CURLOPT_HEADER => true,
-  CURLOPT_HEADERFUNCTION => function($curl, $header) {
-    // Skip denne - vi håndterer headere manuelt
-    return strlen($header);
-  }
+    'User-Agent: RamsoyWeatherProxy/1.0 (skorstad.name)'
+  ]
 ]);
 
 $response = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-
-if ($response === false) {
-  curl_close($ch);
-  http_response_code(502);
-  header('Content-Type: application/json');
-  header('Access-Control-Allow-Origin: *');
-  echo json_encode(['error' => 'Failed to fetch from MET API', 'code' => 502]);
-  exit;
-}
-
-$headers = substr($response, 0, $headerSize);
-$body = substr($response, $headerSize);
+$error = curl_error($ch);
 curl_close($ch);
 
-// Sjekk HTTP-status
-if ($httpCode >= 400) {
-  http_response_code($httpCode);
-  header('Content-Type: application/json');
+if ($response === false || $error) {
+  header('Content-Type: application/json; charset=utf-8');
   header('Access-Control-Allow-Origin: *');
-  echo json_encode(['error' => 'MET API returned error', 'code' => $httpCode]);
+  http_response_code(500);
+  echo json_encode(['error' => 'Failed to fetch moon data: ' . $error]);
   exit;
 }
 
-// Parse og lagre relevante headere
-$responseHeaders = [];
-$headerLines = explode("\r\n", $headers);
-foreach ($headerLines as $line) {
-  if (stripos($line, 'content-type:') === 0 ||
-      stripos($line, 'cache-control:') === 0 ||
-      stripos($line, 'expires:') === 0 ||
-      stripos($line, 'last-modified:') === 0) {
-    $responseHeaders[] = trim($line);
-  }
+if ($httpCode !== 200) {
+  header('Content-Type: application/json; charset=utf-8');
+  header('Access-Control-Allow-Origin: *');
+  http_response_code($httpCode);
+  echo $response;
+  exit;
 }
+
+// Dekod MET-respons
+$metData = json_decode($response, true);
+if (!$metData) {
+  header('Content-Type: application/json; charset=utf-8');
+  header('Access-Control-Allow-Origin: *');
+  http_response_code(500);
+  echo json_encode(['error' => 'Invalid JSON from MET API']);
+  exit;
+}
+
+// Helper functions
+function getPhaseName($deg) {
+    $d = fmod(fmod($deg, 360) + 360, 360); // Normalize to 0-360
+
+    if ($d < 10 || $d >= 350) return "Nymåne";
+    if (abs($d - 90) < 10) return "Første kvarter";
+    if (abs($d - 180) < 10) return "Fullmåne";
+    if (abs($d - 270) < 10) return "Siste kvarter";
+
+    return $d < 180 ? "Voksende" : "Minkende";
+}
+
+function generateMoonSVG($phase, $illumination) {
+    $size = 120;
+    $r = $size / 2;
+    $cx = $r;
+    $cy = $r;
+    $phi = ($phase * M_PI) / 180;
+    $rx = abs(cos($phi)) * $r;
+
+    $N = 64; // Number of sample points
+
+    // Helper function to sample points along a curve
+    $sample = function($from, $to, $fn) use ($N) {
+        $pts = [];
+        for ($i = 0; $i <= $N; $i++) {
+            $t = $from + ($to - $from) * ($i / $N);
+            $pts[] = $fn($t);
+        }
+        return $pts;
+    };
+
+    // Circle function
+    $circle = function($t) use ($cx, $cy, $r) {
+        return [$cx + $r * cos($t), $cy + $r * sin($t)];
+    };
+
+    // Right ellipse function
+    $eRight = function($t) use ($cx, $cy, $r, $rx) {
+        return [$cx + $rx * cos($t), $cy + $r * sin($t)];
+    };
+
+    // Left ellipse function
+    $eLeft = function($t) use ($cx, $cy, $r, $rx) {
+        return [$cx - $rx * cos($t), $cy + $r * sin($t)];
+    };
+
+    $pts = [];
+
+    if ($phase <= 180) {
+        $pts = array_merge($pts, $sample(-M_PI/2, M_PI/2, $circle));
+        if ($phase <= 90) {
+            $pts = array_merge($pts, $sample(M_PI/2, -M_PI/2, $eRight));
+        } else {
+            $pts = array_merge($pts, $sample(M_PI/2, -M_PI/2, $eLeft));
+        }
+    } else {
+        $pts = array_merge($pts, $sample(M_PI/2, 3*M_PI/2, $circle));
+        if ($phase <= 270) {
+            $pts = array_merge($pts, $sample(-M_PI/2, M_PI/2, $eRight));
+        } else {
+            $pts = array_merge($pts, $sample(-M_PI/2, M_PI/2, $eLeft));
+        }
+    }
+
+    // Build the path data
+    $pathData = "M " . number_format($pts[0][0], 3) . " " . number_format($pts[0][1], 3);
+    for ($i = 1; $i < count($pts); $i++) {
+        $pathData .= " L " . number_format($pts[$i][0], 3) . " " . number_format($pts[$i][1], 3);
+    }
+    $pathData .= " Z";
+
+    // Build the SVG
+    $defs = '<defs><filter id="moonGlow" x="-50%" y="-50%" width="200%" height="200%">' .
+            '<feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="b1"/>' .
+            '<feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>' .
+            '</filter></defs>';
+
+    $bg = sprintf('<circle cx="%d" cy="%d" r="%d" fill="#1e2228"/>', $cx, $cy, $r);
+    $lit = sprintf('<g filter="url(#moonGlow)"><path d="%s" fill="#ffffff"/></g>', $pathData);
+    $rim = sprintf('<circle cx="%d" cy="%d" r="%.1f" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>',
+                   $cx, $cy, $r - 0.6);
+
+    return $defs . $bg . $lit . $rim;
+}
+
+// Prosesser månedata - ONLY simple format
+function processMoonData($data) {
+    if (!isset($data['properties']['moonphase'])) {
+        return null;
+    }
+
+    $phase = $data['properties']['moonphase'];
+
+    // Beregn belysningsgrad som i originalen: (1 - cos(deg * PI / 180)) / 2
+    $illumination = (1 - cos(deg2rad($phase))) / 2;
+
+    // Generer SVG
+    $svg = generateMoonSVG($phase, $illumination);
+
+    // Beregn fasenavn akkurat som originalen
+    $phaseName = getPhaseName($phase);
+
+    // Formatér tekst akkurat som originalen: "Voksende • 87%" - NOTHING ELSE
+    $phaseText = sprintf('%s • %d%%', $phaseName, round($illumination * 100));
+
+    return [
+        'svg' => $svg,
+        'text' => $phaseText,
+        'phase' => $phase,
+        'illumination' => $illumination * 100,
+        'phaseName' => $phaseName
+    ];
+}
+
+// Prosesser dataene
+$processed = processMoonData($metData);
+
+// Bygg endelig respons
+$result = $metData; // Inkluder original data
+$result['processed'] = $processed; // Legg til prosesserte data
 
 // Lagre til cache
-@file_put_contents($cacheFile, $body);
-@file_put_contents($metaFile, json_encode($responseHeaders));
+file_put_contents($cacheFile, json_encode($result));
 
-// Send response
+// Send respons
+header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
-foreach ($responseHeaders as $h) {
-  header($h, false);
-}
+header('Cache-Control: public, max-age=' . CACHE_TTL);
 header('X-Cache: MISS');
 
-echo $body;
-
+echo json_encode($result);
+?>

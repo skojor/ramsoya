@@ -70,5 +70,12 @@ uploads/
 config.local.php
 database.config.php
 
-# Ignore all files in the private directory (contains credentials and sensitive config)
-private/
+# Other
+.htaccess
+.nysnap*
+gammel/
+nysnap.jpg
+pics/
+siste.jpg
+snitt.jpg
+stats/
