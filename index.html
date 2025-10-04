@@ -563,7 +563,7 @@
   // --- Hjelpere ---
   const norm360 = d => ((d % 360) + 360) % 360;
   const WIND_ARROW_MODE = 'to';
-  const IMG_URL = "http://ramsoy.skorstad.name/siste.jpg";
+  const IMG_URL = "https://ramsoy.skorstad.name/siste.jpg";
   const WEATHER_URL = "getweather_overlay.php";
   const IMAGE_INTERVAL_MS = 20_000;
   const WEATHER_INTERVAL_MS = 30_000;
@@ -601,12 +601,18 @@
   }
   async function updateImageCaptureTime(){
     try{
-      const res = await fetch(IMG_URL, { method: 'HEAD', cache: 'no-store' });
-      const lm = res.headers.get('Last-Modified');
-      if (lm){
-        const t = new Date(lm).getTime();
-        if (Number.isFinite(t)) {
-          imageCaptureTs = t;
+      const res = await fetch('/image_metadata_proxy.php', {
+        method: 'GET',
+        cache: 'no-cache'
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.lastModified) {
+          const t = new Date(data.lastModified).getTime();
+          if (Number.isFinite(t)) {
+            imageCaptureTs = t;
+          }
         }
       }
     }catch(e){
