@@ -595,7 +595,7 @@ function fmt(val, suffix=''){
       }
 
       function renderBidirectionalDepartures(data) {
-          console.log('Rendering Entur departures:', data);
+          <!--console.log('Rendering Entur departures:', data);-->
 
           const { bidirectionalDepartures, stopRamsoyUrl, stopSandviksUrl } = data;
 
@@ -649,17 +649,17 @@ function fmt(val, suffix=''){
               html += `</div>`;
           });
 
-          console.log('Generated HTML:', html);
+          <!--console.log('Generated HTML:', html);-->
           depEl.innerHTML = html;
       }
 
       async function updateEntur(){
           try {
-              console.log('Starting Entur update...');
+              <!--console.log('Starting Entur update...');-->
               updEl.textContent = "oppdaterer…";
 
               const url = `${API_URL}?bidirectional=true&_=${Date.now()}`;
-              console.log('Fetching Entur data from:', url);
+              <!--console.log('Fetching Entur data from:', url);-->
 
               const response = await fetch(url);
               if (!response.ok) {
@@ -667,12 +667,12 @@ function fmt(val, suffix=''){
               }
 
               const result = await response.json();
-              console.log('Entur API response:', result);
+              <!--console.log('Entur API response:', result);-->
 
               if (result.success) {
                   renderBidirectionalDepartures(result.data);
                   updEl.textContent = `oppdatert ${result.updated}`;
-                  console.log('Entur update successful');
+                  <!--console.log('Entur update successful');-->
               } else {
                   throw new Error(result.error || 'Ukjent feil fra API');
               }
@@ -684,7 +684,7 @@ function fmt(val, suffix=''){
       }
 
       // Load initially and set up refresh
-      console.log('Initializing Entur integration...');
+      <!--console.log('Initializing Entur integration...');-->
       updateEntur();
       setInterval(updateEntur, 60_000); // Refresh every minute
   })();
