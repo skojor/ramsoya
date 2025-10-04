@@ -609,6 +609,8 @@ function fmt(val, suffix=''){
           bidirectionalDepartures.forEach(item => {
               const dep = item.departure;
               const direction = item.direction;
+              const isVerified = item.verified;
+              const isFallback = item.isFallback || false;
 
               // Fix: Handle both "Ramsøy" and "Ramsy" (typo in API response)
               const isFromRamsoy = direction.includes('Ramsy →') || direction.includes('Ramsøy →');
@@ -618,10 +620,13 @@ function fmt(val, suffix=''){
               // Format departure time
               const depTimeFormatted = formatTime(dep.time);
 
-              // Format on-time status (including "I rute")
-              const onTimeStatus = dep.onTimeStatus ? ` (${dep.onTimeStatus})` : '';
+              // Format on-time status with enhanced logic
+              let onTimeStatus = '';
+              if (dep.onTimeStatus) {
+                  onTimeStatus = ` (${dep.onTimeStatus})`;
+              }
 
-              // Format arrival info
+              // Format arrival info with verification status
               let arrivalInfo = '';
               if (dep.arrivalTime && dep.arrivalTime !== dep.time) {
                   const arrivalTimeFormatted = formatTime(dep.arrivalTime);
@@ -630,9 +635,16 @@ function fmt(val, suffix=''){
                   arrivalInfo = ` • Ankomst ${destination} ${arrivalTimeFormatted}`;
               }
 
-              // Build the complete line matching the expected format: "13:49 – Sandviksberget (Forsinket +49 min) • Ankomst Sandviksberget 14:31"
+              // Add fallback note if this is unverified route data
+              let fallbackNote = '';
+              if (isFallback && !isVerified) {
+                  const tooltip = 'title="Entur mangler informasjon om mellomstopp, så anløpet kan ikke bekreftes."';
+                  fallbackNote = ` • <span ${tooltip}>anløp ikke bekreftet</span>`;
+              }
+
+              // Build the complete line with enhanced status information
               html += `<div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin: 0.4rem 0px;">`;
-              html += `<span><strong style="color:#a9b3bd;font-weight:600;margin-right:.3rem;">${direction}:</strong> ${depTimeFormatted} – ${dep.destination}${onTimeStatus}${arrivalInfo}</span>`;
+              html += `<span><strong style="color:#a9b3bd;font-weight:600;margin-right:.3rem;">${direction}:</strong> ${depTimeFormatted} – ${dep.destination}${onTimeStatus}${arrivalInfo}${fallbackNote}</span>`;
               html += `<div class="row-actions">${actionBtn}</div>`;
               html += `</div>`;
           });
