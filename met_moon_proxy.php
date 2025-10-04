@@ -1,7 +1,7 @@
 <?php
 // met_moon_proxy.php
-// Proxy for MET Norway Sunrise Moon API (https://api.met.no/weatherapi/sunrise/3.0/moon)
-// Sikker og enkel, med liten cache. © deg selv 🤝
+// Enhanced proxy for MET Norway Sunrise Moon API with server-side processing
+// © 2025 Skorstad Engineering AS
 
 require("../private/met_forecastcred.php");
 
@@ -31,14 +31,8 @@ if (!is_dir($cacheDir)) {
 // Returner cache hvis fersk
 if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < CACHE_TTL)) {
   header('Access-Control-Allow-Origin: *');
-  if (file_exists($metaFile)) {
-    // send lagrede headere (trygt under kontroll)
-    $headers = @json_decode(@file_get_contents($metaFile), true) ?: [];
-    foreach ($headers as $h) { header($h, false); }
-  } else {
-    header('Content-Type: application/json; charset=utf-8');
-    header('Cache-Control: public, max-age=' . (CACHE_TTL - (time() - filemtime($cacheFile))));
-  }
+  header('Content-Type: application/json; charset=utf-8');
+  header('Cache-Control: public, max-age=' . (CACHE_TTL - (time() - filemtime($cacheFile))));
   header('X-Cache: HIT');
   readfile($cacheFile);
   exit;
@@ -49,224 +43,167 @@ $ch = curl_init($upstreamUrl);
 curl_setopt_array($ch, [
   CURLOPT_RETURNTRANSFER => true,
   CURLOPT_FOLLOWLOCATION => true,
-  CURLOPT_SSL_VERIFYPEER => true,
-  CURLOPT_CONNECTTIMEOUT => 6,
-  CURLOPT_TIMEOUT        => 12,
-  CURLOPT_HTTPHEADER     => [
+  CURLOPT_MAXREDIRS => 3,
+  CURLOPT_TIMEOUT => 10,
+  CURLOPT_USERAGENT => 'RamsoyWeatherProxy/1.0 (skorstad.name)',
+  CURLOPT_HTTPHEADER => [
     'Accept: application/json',
-    // MET: identify yourself — app + contact
-    'User-Agent: ' . APP_NAME . ' (' . CONTACT . ')'
-  ],
-  CURLOPT_HEADER => true, // hent både headere og body for videresending
+    'User-Agent: RamsoyWeatherProxy/1.0 (skorstad.name)'
+  ]
 ]);
 
-$resp = curl_exec($ch);
-if ($resp === false) {
-  http_response_code(502);
+$response = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$error = curl_error($ch);
+curl_close($ch);
+
+if ($response === false || $error) {
   header('Content-Type: application/json; charset=utf-8');
   header('Access-Control-Allow-Origin: *');
-  echo json_encode(['error' => 'Upstream fetch failed', 'detail' => curl_error($ch)], JSON_UNESCAPED_UNICODE);
-  curl_close($ch);
+  http_response_code(500);
+  echo json_encode(['error' => 'Failed to fetch moon data: ' . $error]);
   exit;
 }
 
-$headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-$status     = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-$headersRaw = substr($resp, 0, $headerSize);
-$body       = substr($resp, $headerSize);
-curl_close($ch);
+if ($httpCode !== 200) {
+  header('Content-Type: application/json; charset=utf-8');
+  header('Access-Control-Allow-Origin: *');
+  http_response_code($httpCode);
+  echo $response;
+  exit;
+}
 
-if ($status === 200) {
-  $moonData = json_decode($body, true);
-  if (json_last_error() === JSON_ERROR_NONE && $moonData) {
-    // Extract and process moon phase data
-    $moonphase = deepFindMoonphase($moonData);
-    if ($moonphase !== null && is_numeric($moonphase)) {
-      // Normalize degree to 0-360 range
-      $degree = fmod(fmod(floatval($moonphase), 360) + 360, 360);
+// Dekod MET-respons
+$metData = json_decode($response, true);
+if (!$metData) {
+  header('Content-Type: application/json; charset=utf-8');
+  header('Access-Control-Allow-Origin: *');
+  http_response_code(500);
+  echo json_encode(['error' => 'Invalid JSON from MET API']);
+  exit;
+}
 
-      // Calculate additional moon data
-      $phaseName = getPhaseName($degree);
-      $illumination = getIlluminationFraction($degree);
-      $svg = generateMoonSVG($degree);
-
-      // Create enhanced response with processed data
-      $enhancedData = [
-        'original' => $moonData,
-        'processed' => [
-          'degree' => round($degree, 2),
-          'phaseName' => $phaseName,
-          'illumination' => round($illumination * 100),
-          'svg' => $svg,
-          'text' => $phaseName . ' • ' . round($illumination * 100) . '%'
-        ]
-      ];
-
-      $body = json_encode($enhancedData, JSON_UNESCAPED_UNICODE);
+// Prosesser månedata
+function processMoonData($data) {
+    if (!isset($data['properties']['moonphase'])) {
+        return null;
     }
-  }
+
+    $phase = $data['properties']['moonphase'];
+    $props = $data['properties'];
+
+    // Beregn månefase-info
+    $phaseNames = [
+        [0, 'Nymåne'],
+        [45, 'Voksende månesigd'],
+        [90, 'Første kvarter'],
+        [135, 'Voksende måne'],
+        [180, 'Fullmåne'],
+        [225, 'Avtagende måne'],
+        [270, 'Siste kvarter'],
+        [315, 'Avtagende månesigd'],
+        [360, 'Nymåne']
+    ];
+
+    $phaseName = 'Ukjent fase';
+    foreach ($phaseNames as $i => $phaseInfo) {
+        if ($phase <= $phaseInfo[0]) {
+            $phaseName = $phaseInfo[1];
+            break;
+        }
+    }
+
+    // Beregn belysningsgrad (0-100%)
+    $illumination = 50 * (1 - cos(deg2rad($phase)));
+
+    // Generer SVG
+    $svg = generateMoonSVG($phase, $illumination);
+
+    // Formatér tekst
+    $phaseText = sprintf('%s (%.1f°, %.0f%% belyst)', $phaseName, $phase, $illumination);
+
+    // Legg til måneoppgang/nedgang hvis tilgjengelig
+    if (isset($props['moonrise']['time'])) {
+        $moonrise = new DateTime($props['moonrise']['time']);
+        $moonrise->setTimezone(new DateTimeZone('Europe/Oslo'));
+        $phaseText .= sprintf('\nMåneoppgang: %s', $moonrise->format('H:i'));
+    }
+
+    if (isset($props['moonset']['time'])) {
+        $moonset = new DateTime($props['moonset']['time']);
+        $moonset->setTimezone(new DateTimeZone('Europe/Oslo'));
+        $phaseText .= sprintf('\nMånenedgang: %s', $moonset->format('H:i'));
+    }
+
+    return [
+        'svg' => $svg,
+        'text' => $phaseText,
+        'phase' => $phase,
+        'illumination' => $illumination,
+        'phaseName' => $phaseName
+    ];
 }
 
-// Forbered headere å videresende (filtrer/normaliser)
-$outHeaders = [];
-$contentType = 'application/json; charset=utf-8';
-foreach (explode("\r\n", $headersRaw) as $line) {
-  if (stripos($line, 'Content-Type:') === 0) { $contentType = trim(substr($line, 13)); }
-  if (stripos($line, 'Cache-Control:') === 0) { $outHeaders[] = $line; }
-  if (stripos($line, 'ETag:') === 0)          { $outHeaders[] = $line; }
-  if (stripos($line, 'Expires:') === 0)       { $outHeaders[] = $line; }
-  if (stripos($line, 'Last-Modified:') === 0) { $outHeaders[] = $line; }
+function generateMoonSVG($phase, $illumination) {
+    $cx = 60;
+    $cy = 60;
+    $r = 58;
+
+    // Grunnleggende måne-sirkel
+    $svg = '<circle cx="60" cy="60" r="58" fill="#2c3e50"/>';
+
+    // Beregn skygge basert på fase
+    if ($phase <= 180) {
+        // Voksende måne (høyre side blir belyst)
+        $offset = ($phase / 180) * $r * 2 - $r;
+        if ($phase < 90) {
+            // Første halvdel - voksende sigd til første kvarter
+            $svg .= sprintf('<ellipse cx="%.1f" cy="60" rx="%.1f" ry="58" fill="#f4d03f"/>',
+                           $cx + $offset/2, abs($offset));
+        } else {
+            // Andre halvdel - første kvarter til fullmåne
+            $svg .= sprintf('<circle cx="60" cy="60" r="58" fill="#f4d03f"/>');
+            if ($offset < $r) {
+                $svg .= sprintf('<ellipse cx="%.1f" cy="60" rx="%.1f" ry="58" fill="#2c3e50"/>',
+                               $cx - ($r - abs($offset))/2, $r - abs($offset));
+            }
+        }
+    } else {
+        // Avtagende måne (venstre side blir belyst)
+        $offset = (($phase - 180) / 180) * $r * 2 - $r;
+        if ($phase < 270) {
+            // Tredje kvart - fullmåne til siste kvarter
+            $svg .= sprintf('<circle cx="60" cy="60" r="58" fill="#f4d03f"/>');
+            $svg .= sprintf('<ellipse cx="%.1f" cy="60" rx="%.1f" ry="58" fill="#2c3e50"/>',
+                           $cx + ($r - abs($offset))/2, $r - abs($offset));
+        } else {
+            // Siste kvart - siste kvarter til nymåne
+            $svg .= sprintf('<ellipse cx="%.1f" cy="60" rx="%.1f" ry="58" fill="#f4d03f"/>',
+                           $cx - abs($offset)/2, abs($offset));
+        }
+    }
+
+    // Legg til kant-sirkel
+    $svg .= '<circle cx="60" cy="60" r="58" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>';
+
+    return $svg;
 }
 
-// Svar til klient
-http_response_code($status);
+// Prosesser dataene
+$processed = processMoonData($metData);
+
+// Bygg endelig respons
+$result = $metData; // Inkluder original data
+$result['processed'] = $processed; // Legg til prosesserte data
+
+// Lagre til cache
+file_put_contents($cacheFile, json_encode($result));
+
+// Send respons
+header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
-header('Content-Type: ' . $contentType);
-foreach ($outHeaders as $h) { header($h, false); }
-
-// Legg på egen cache hvis upstream ikke ga noe
-$hasCacheHdr = false;
-foreach ($outHeaders as $h) { if (stripos($h,'Cache-Control:')===0) { $hasCacheHdr = true; break; } }
-if (!$hasCacheHdr) {
-  header('Cache-Control: public, max-age=' . CACHE_TTL);
-}
-
-// Skriv cache bare når 200 OK og valid JSON
-if ($status === 200) {
-  // valider at det er JSON (best-effort)
-  json_decode($body);
-  if (json_last_error() === JSON_ERROR_NONE) {
-    @file_put_contents($cacheFile, $body);
-    @file_put_contents($metaFile, json_encode([
-      'Content-Type: ' . $contentType,
-      'Cache-Control: public, max-age=' . CACHE_TTL
-    ]));
-  }
-}
-
+header('Cache-Control: public, max-age=' . CACHE_TTL);
 header('X-Cache: MISS');
-echo $body;
 
-// Moon phase processing functions
-function deepFindMoonphase($obj) {
-  if (!is_array($obj) && !is_object($obj)) {
-    return null;
-  }
-
-  $array = is_object($obj) ? get_object_vars($obj) : $obj;
-
-  if (isset($array['moonphase'])) {
-    $mp = $array['moonphase'];
-    if (is_array($mp) && isset($mp['value'])) {
-      return floatval($mp['value']);
-    }
-    if (is_numeric($mp)) {
-      return floatval($mp);
-    }
-  }
-
-  foreach ($array as $value) {
-    if (is_array($value) || is_object($value)) {
-      $found = deepFindMoonphase($value);
-      if ($found !== null && is_numeric($found)) {
-        return $found;
-      }
-    }
-  }
-
-  return null;
-}
-
-function getPhaseName($degree) {
-  $d = fmod($degree + 360, 360);
-
-  if ($d < 10 || $d >= 350) return "Nymåne";
-  if (abs($d - 90) < 10) return "Første kvarter";
-  if (abs($d - 180) < 10) return "Fullmåne";
-  if (abs($d - 270) < 10) return "Siste kvarter";
-
-  return $d < 180 ? "Voksende" : "Minkende";
-}
-
-function getIlluminationFraction($degree) {
-  return (1 - cos(deg2rad($degree))) / 2;
-}
-
-function generateMoonSVG($degree) {
-  $size = 120;
-  $r = $size / 2;
-  $cx = $r;
-  $cy = $r;
-  $phi = deg2rad($degree);
-  $rx = abs(cos($phi)) * $r;
-  $N = 64;
-
-  $points = [];
-
-  if ($degree <= 180) {
-    // Waxing phase
-    $points = array_merge($points, sampleCircle(-M_PI/2, M_PI/2, $cx, $cy, $r, $N/2));
-    if ($degree <= 90) {
-      $points = array_merge($points, sampleEllipse(M_PI/2, -M_PI/2, $cx, $cy, $rx, $r, $N/2, 'right'));
-    } else {
-      $points = array_merge($points, sampleEllipse(M_PI/2, -M_PI/2, $cx, $cy, $rx, $r, $N/2, 'left'));
-    }
-  } else {
-    // Waning phase
-    $points = array_merge($points, sampleCircle(M_PI/2, 3*M_PI/2, $cx, $cy, $r, $N/2));
-    if ($degree <= 270) {
-      $points = array_merge($points, sampleEllipse(-M_PI/2, M_PI/2, $cx, $cy, $rx, $r, $N/2, 'right'));
-    } else {
-      $points = array_merge($points, sampleEllipse(-M_PI/2, M_PI/2, $cx, $cy, $rx, $r, $N/2, 'left'));
-    }
-  }
-
-  $pathData = pointsToPath($points);
-
-  // SVG components
-  $defs = '<defs><filter id="moonGlow" x="-50%" y="-50%" width="200%" height="200%">' .
-          '<feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="b1"/>' .
-          '<feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>' .
-          '</filter></defs>';
-
-  $background = '<circle cx="' . $cx . '" cy="' . $cy . '" r="' . $r . '" fill="#1e2228"/>';
-  $litPortion = '<g filter="url(#moonGlow)"><path d="' . $pathData . '" fill="#ffffff"/></g>';
-  $rim = '<circle cx="' . $cx . '" cy="' . $cy . '" r="' . ($r - 0.6) . '" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>';
-
-  return $defs . $background . $litPortion . $rim;
-}
-
-function sampleCircle($from, $to, $cx, $cy, $r, $n) {
-  $points = [];
-  for ($i = 0; $i <= $n; $i++) {
-    $t = $from + ($to - $from) * ($i / $n);
-    $points[] = [$cx + $r * cos($t), $cy + $r * sin($t)];
-  }
-  return $points;
-}
-
-function sampleEllipse($from, $to, $cx, $cy, $rx, $ry, $n, $side) {
-  $points = [];
-  for ($i = 0; $i <= $n; $i++) {
-    $t = $from + ($to - $from) * ($i / $n);
-    if ($side === 'right') {
-      $points[] = [$cx + $rx * cos($t), $cy + $ry * sin($t)];
-    } else {
-      $points[] = [$cx - $rx * cos($t), $cy + $ry * sin($t)];
-    }
-  }
-  return $points;
-}
-
-function pointsToPath($points) {
-  if (empty($points)) return '';
-
-  $path = 'M' . round($points[0][0], 3) . ',' . round($points[0][1], 3);
-  for ($i = 1; $i < count($points); $i++) {
-    $path .= 'L' . round($points[$i][0], 3) . ',' . round($points[$i][1], 3);
-  }
-  $path .= 'Z';
-
-  return $path;
-}
+echo json_encode($result);
 ?>
