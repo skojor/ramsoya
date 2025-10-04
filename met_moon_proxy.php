@@ -22,7 +22,6 @@ $upstreamUrl = $base . (empty($q) ? '' : ('?' . http_build_query($q)));
 $cacheKey  = sha1($upstreamUrl);
 $cacheDir  = sys_get_temp_dir() . '/met_moon_cache';
 $cacheFile = $cacheDir . '/' . $cacheKey . '.json';
-$metaFile  = $cacheDir . '/' . $cacheKey . '.headers';
 
 if (!is_dir($cacheDir)) {
   @mkdir($cacheDir, 0775, true);
@@ -83,110 +82,119 @@ if (!$metData) {
   exit;
 }
 
-// Prosesser månedata
+// Helper functions
+function getPhaseName($deg) {
+    $d = fmod(fmod($deg, 360) + 360, 360); // Normalize to 0-360
+
+    if ($d < 10 || $d >= 350) return "Nymåne";
+    if (abs($d - 90) < 10) return "Første kvarter";
+    if (abs($d - 180) < 10) return "Fullmåne";
+    if (abs($d - 270) < 10) return "Siste kvarter";
+
+    return $d < 180 ? "Voksende" : "Minkende";
+}
+
+function generateMoonSVG($phase, $illumination) {
+    $size = 120;
+    $r = $size / 2;
+    $cx = $r;
+    $cy = $r;
+    $phi = ($phase * M_PI) / 180;
+    $rx = abs(cos($phi)) * $r;
+
+    $N = 64; // Number of sample points
+
+    // Helper function to sample points along a curve
+    $sample = function($from, $to, $fn) use ($N) {
+        $pts = [];
+        for ($i = 0; $i <= $N; $i++) {
+            $t = $from + ($to - $from) * ($i / $N);
+            $pts[] = $fn($t);
+        }
+        return $pts;
+    };
+
+    // Circle function
+    $circle = function($t) use ($cx, $cy, $r) {
+        return [$cx + $r * cos($t), $cy + $r * sin($t)];
+    };
+
+    // Right ellipse function
+    $eRight = function($t) use ($cx, $cy, $r, $rx) {
+        return [$cx + $rx * cos($t), $cy + $r * sin($t)];
+    };
+
+    // Left ellipse function
+    $eLeft = function($t) use ($cx, $cy, $r, $rx) {
+        return [$cx - $rx * cos($t), $cy + $r * sin($t)];
+    };
+
+    $pts = [];
+
+    if ($phase <= 180) {
+        $pts = array_merge($pts, $sample(-M_PI/2, M_PI/2, $circle));
+        if ($phase <= 90) {
+            $pts = array_merge($pts, $sample(M_PI/2, -M_PI/2, $eRight));
+        } else {
+            $pts = array_merge($pts, $sample(M_PI/2, -M_PI/2, $eLeft));
+        }
+    } else {
+        $pts = array_merge($pts, $sample(M_PI/2, 3*M_PI/2, $circle));
+        if ($phase <= 270) {
+            $pts = array_merge($pts, $sample(-M_PI/2, M_PI/2, $eRight));
+        } else {
+            $pts = array_merge($pts, $sample(-M_PI/2, M_PI/2, $eLeft));
+        }
+    }
+
+    // Build the path data
+    $pathData = "M " . number_format($pts[0][0], 3) . " " . number_format($pts[0][1], 3);
+    for ($i = 1; $i < count($pts); $i++) {
+        $pathData .= " L " . number_format($pts[$i][0], 3) . " " . number_format($pts[$i][1], 3);
+    }
+    $pathData .= " Z";
+
+    // Build the SVG
+    $defs = '<defs><filter id="moonGlow" x="-50%" y="-50%" width="200%" height="200%">' .
+            '<feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="b1"/>' .
+            '<feMerge><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>' .
+            '</filter></defs>';
+
+    $bg = sprintf('<circle cx="%d" cy="%d" r="%d" fill="#1e2228"/>', $cx, $cy, $r);
+    $lit = sprintf('<g filter="url(#moonGlow)"><path d="%s" fill="#ffffff"/></g>', $pathData);
+    $rim = sprintf('<circle cx="%d" cy="%d" r="%.1f" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>',
+                   $cx, $cy, $r - 0.6);
+
+    return $defs . $bg . $lit . $rim;
+}
+
+// Prosesser månedata - ONLY simple format
 function processMoonData($data) {
     if (!isset($data['properties']['moonphase'])) {
         return null;
     }
 
     $phase = $data['properties']['moonphase'];
-    $props = $data['properties'];
 
-    // Beregn månefase-info
-    $phaseNames = [
-        [0, 'Nymåne'],
-        [45, 'Voksende månesigd'],
-        [90, 'Første kvarter'],
-        [135, 'Voksende måne'],
-        [180, 'Fullmåne'],
-        [225, 'Avtagende måne'],
-        [270, 'Siste kvarter'],
-        [315, 'Avtagende månesigd'],
-        [360, 'Nymåne']
-    ];
-
-    $phaseName = 'Ukjent fase';
-    foreach ($phaseNames as $i => $phaseInfo) {
-        if ($phase <= $phaseInfo[0]) {
-            $phaseName = $phaseInfo[1];
-            break;
-        }
-    }
-
-    // Beregn belysningsgrad (0-100%)
-    $illumination = 50 * (1 - cos(deg2rad($phase)));
+    // Beregn belysningsgrad som i originalen: (1 - cos(deg * PI / 180)) / 2
+    $illumination = (1 - cos(deg2rad($phase))) / 2;
 
     // Generer SVG
     $svg = generateMoonSVG($phase, $illumination);
 
-    // Formatér tekst
-    $phaseText = sprintf('%s (%.1f°, %.0f%% belyst)', $phaseName, $phase, $illumination);
+    // Beregn fasenavn akkurat som originalen
+    $phaseName = getPhaseName($phase);
 
-    // Legg til måneoppgang/nedgang hvis tilgjengelig
-    if (isset($props['moonrise']['time'])) {
-        $moonrise = new DateTime($props['moonrise']['time']);
-        $moonrise->setTimezone(new DateTimeZone('Europe/Oslo'));
-        $phaseText .= sprintf('\nMåneoppgang: %s', $moonrise->format('H:i'));
-    }
-
-    if (isset($props['moonset']['time'])) {
-        $moonset = new DateTime($props['moonset']['time']);
-        $moonset->setTimezone(new DateTimeZone('Europe/Oslo'));
-        $phaseText .= sprintf('\nMånenedgang: %s', $moonset->format('H:i'));
-    }
+    // Formatér tekst akkurat som originalen: "Voksende • 87%" - NOTHING ELSE
+    $phaseText = sprintf('%s • %d%%', $phaseName, round($illumination * 100));
 
     return [
         'svg' => $svg,
         'text' => $phaseText,
         'phase' => $phase,
-        'illumination' => $illumination,
+        'illumination' => $illumination * 100,
         'phaseName' => $phaseName
     ];
-}
-
-function generateMoonSVG($phase, $illumination) {
-    $cx = 60;
-    $cy = 60;
-    $r = 58;
-
-    // Grunnleggende måne-sirkel
-    $svg = '<circle cx="60" cy="60" r="58" fill="#2c3e50"/>';
-
-    // Beregn skygge basert på fase
-    if ($phase <= 180) {
-        // Voksende måne (høyre side blir belyst)
-        $offset = ($phase / 180) * $r * 2 - $r;
-        if ($phase < 90) {
-            // Første halvdel - voksende sigd til første kvarter
-            $svg .= sprintf('<ellipse cx="%.1f" cy="60" rx="%.1f" ry="58" fill="#f4d03f"/>',
-                           $cx + $offset/2, abs($offset));
-        } else {
-            // Andre halvdel - første kvarter til fullmåne
-            $svg .= sprintf('<circle cx="60" cy="60" r="58" fill="#f4d03f"/>');
-            if ($offset < $r) {
-                $svg .= sprintf('<ellipse cx="%.1f" cy="60" rx="%.1f" ry="58" fill="#2c3e50"/>',
-                               $cx - ($r - abs($offset))/2, $r - abs($offset));
-            }
-        }
-    } else {
-        // Avtagende måne (venstre side blir belyst)
-        $offset = (($phase - 180) / 180) * $r * 2 - $r;
-        if ($phase < 270) {
-            // Tredje kvart - fullmåne til siste kvarter
-            $svg .= sprintf('<circle cx="60" cy="60" r="58" fill="#f4d03f"/>');
-            $svg .= sprintf('<ellipse cx="%.1f" cy="60" rx="%.1f" ry="58" fill="#2c3e50"/>',
-                           $cx + ($r - abs($offset))/2, $r - abs($offset));
-        } else {
-            // Siste kvart - siste kvarter til nymåne
-            $svg .= sprintf('<ellipse cx="%.1f" cy="60" rx="%.1f" ry="58" fill="#f4d03f"/>',
-                           $cx - abs($offset)/2, abs($offset));
-        }
-    }
-
-    // Legg til kant-sirkel
-    $svg .= '<circle cx="60" cy="60" r="58" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>';
-
-    return $svg;
 }
 
 // Prosesser dataene
