@@ -109,7 +109,7 @@ function derive_airline($flight) {
 
 try {
     // Fetch aircraft data from tar1090
-    $aircraft_url = 'adsb/tar1090/data/aircraft.json';
+    $aircraft_url = '/adsb/tar1090/data/aircraft.json';
     $context = stream_context_create([
         'http' => [
             'timeout' => 10,
