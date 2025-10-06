@@ -394,7 +394,7 @@
     events.forEach((event, index) => {
       html += `
         <div class="sun-event-item ${index === 0 ? 'sun-event-next' : ''}">
-          <div class="sun-event-type">${event.label}</div>
+          <div class="sun-event-type">${event.label}<img src="${event.icon}"/></div>
           <div class="sun-event-time">${event.dayLabel} ${event.time}</div>
         </div>
       `;
