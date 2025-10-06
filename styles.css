@@ -303,3 +303,210 @@ body{
     vertical-align:baseline;
     line-height:1.4;
 }
+
+/* Sunrise/Sunset section styling */
+.sunrise-sunset {
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 14px;
+    padding: 10px;
+    box-shadow: 0 6px 16px rgba(0,0,0,.25);
+    flex: 0 0 240px;
+}
+
+.sun-strip {
+    padding: 8px 2px;
+}
+
+.sun-event {
+    padding: 8px;
+    display: block;
+}
+
+.sun-loading {
+    opacity: .7;
+    font-size: .9em;
+    color: #a9b3bd;
+    text-align: center;
+    padding: 12px 8px;
+}
+
+.sun-events {
+    display: grid;
+    gap: 6px;
+}
+
+.sun-event-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: .95rem;
+    line-height: 1.35;
+}
+
+.sun-event-label {
+    color: #a9b3bd;
+    opacity: .85;
+}
+
+.sun-event-time {
+    font-weight: 600;
+    color: #e6edf3;
+}
+
+.sun-error {
+    color: #ffb3b3;
+    opacity: .8;
+    font-size: .9em;
+    text-align: center;
+    padding: 12px 8px;
+}
+
+.sun-none {
+    color: #a9b3bd;
+    opacity: .8;
+    font-size: .9em;
+    text-align: center;
+    padding: 12px 8px;
+}
+
+/* Adjust astro-row for three columns */
+.astro-row {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+}
+
+.forecastHourly.compact {
+    flex: 1 1 auto;
+}
+
+.sunrise-sunset.compact {
+    flex: 0 0 240px;
+}
+
+.moon-card {
+    flex: 0 0 320px;
+}
+
+@media (max-width: 900px) {
+    .astro-row {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .sunrise-sunset.compact,
+    .moon-card {
+        flex: none;
+    }
+}
+
+/* Solar Events Responsive Layout */
+.fcH-solar {
+  margin-top: 12px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.fcH-solar-head {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #a9b3bd;
+}
+
+.sun-events-list {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.sun-event-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  min-width: 120px;
+  flex: 1;
+}
+
+.sun-event-item.sun-event-next {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.1);
+}
+
+.sun-event-type {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #a9b3bd;
+  margin-bottom: 4px;
+  text-transform: capitalize;
+}
+
+.sun-event-time {
+  font-size: 0.8rem;
+  color: #a9b3bd;
+  opacity: 0.9;
+}
+
+.sun-error, .sun-none, .sun-loading {
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.sun-error {
+  color: #ff6b6b;
+}
+
+.sun-none {
+  color: #a9b3bd;
+}
+
+.sun-loading {
+  color: #a9b3bd;
+}
+
+/* Responsive: Stack vertically on smaller screens */
+@media (max-width: 768px) {
+  .sun-events-list {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .sun-event-item {
+    flex-direction: row;
+    text-align: left;
+    justify-content: space-between;
+    align-items: center;
+    min-width: unset;
+  }
+
+  .sun-event-type {
+    margin-bottom: 0;
+    margin-right: 8px;
+  }
+}
+
+/* Extra small screens: Keep compact layout */
+@media (max-width: 480px) {
+  .sun-event-item {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  .sun-event-type {
+    font-size: 0.8rem;
+  }
+
+  .sun-event-time {
+    font-size: 0.75rem;
+  }
+}

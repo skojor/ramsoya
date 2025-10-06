@@ -154,7 +154,16 @@
       <section class="forecastHourly compact">
         <div class="fcH-head"><div>Neste 24 timer</div><div class="fcH-note">Oppdateres hver 30. min</div></div>
         <div class="fcH-strip" id="forecastHourly" aria-live="polite"></div>
+
+        <!-- Solar events integrated below hourly forecast -->
+        <div class="fcH-solar" id="solarEvents" aria-live="polite">
+          <div class="fcH-solar-head">Sol</div>
+          <div class="sun-events" id="nextSunEvent">
+            <div class="sun-loading">Henter soldata...</div>
+          </div>
+        </div>
       </section>
+
       <section class="moon-card" id="moonCard" aria-live="polite">
         <svg class="moon-svg" id="moonSvg" viewBox="0 0 120 120" role="img" aria-label="Månefase"></svg>
         <div class="moon-info">
@@ -365,15 +374,63 @@
     for(const c of cards){ const el=document.createElement('div'); el.className='fcH-card'; el.innerHTML=`<div class="fcH-time">${c.timeLabel}</div><div class="fcH-icon">${c.iconPath?`<img src="${c.iconPath}" alt="${c.sym}" onerror="this.onerror=null;this.src='${ICON_BASE}04.svg';this.alt='cloudy';">`:'—'}</div><div class="fcH-t">${c.tDisp}</div><div class="fcH-mm">${c.pDisp}</div><div class="fcH-wind">${c.windTxt} ${c.arrow}</div>`; forecastHourlyEl.appendChild(el);} }
   async function loadForecastHourly(){ try{ const res=await fetch(FORECAST_URL,{cache:'no-cache'}); const raw=await res.text(); if(!res.ok){ console.error('Forecast HTTP',res.status,raw.slice(0,200)); forecastHourlyEl.textContent='Kunne ikke hente varsel.'; return;} let json; try{ json=JSON.parse(raw);}catch(e){ console.error('Forecast JSON',e,raw.slice(0,200)); forecastHourlyEl.textContent='Ugyldig varseldata.'; return;} const series=json?.properties?.timeseries||[]; if(!series.length){ forecastHourlyEl.textContent='Ingen varseldata.'; return;} renderHourly(series);}catch(e){ console.error('Forecast error',e); forecastHourlyEl.textContent='Kunne ikke hente varsel.'; } }
 
+  // --- Soloppgang/solnedgang ---
+  const SUNRISE_URL = "/sunrise_proxy.php?type=all-events";
+  const nextSunEventEl = document.getElementById("nextSunEvent");
+
+  function formatAllSolarEvents(data) {
+    if (!data || data.status !== 'success') {
+      return '<div class="sun-error">Kunne ikke hente soldata</div>';
+    }
+
+    const events = data.events || [];
+
+    if (events.length === 0) {
+      return '<div class="sun-none">Ingen solhendelser neste 24t</div>';
+    }
+
+    // Create HTML for all events with horizontal layout for larger screens
+    let html = '';
+    events.forEach((event, index) => {
+      html += `
+        <div class="sun-event-item ${index === 0 ? 'sun-event-next' : ''}">
+          <div class="sun-event-type">${event.label}</div>
+          <div class="sun-event-time">${event.dayLabel} ${event.time}</div>
+        </div>
+      `;
+    });
+
+    return `<div class="sun-events-list">${html}</div>`;
+  }
+
+  async function loadSunriseSunset() {
+    try {
+      const res = await fetch(SUNRISE_URL, { cache: 'no-cache' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error('Sunrise HTTP', res.status, data);
+        nextSunEventEl.innerHTML = '<div class="sun-error">Kunne ikke hente soldata</div>';
+        return;
+      }
+
+      nextSunEventEl.innerHTML = formatAllSolarEvents(data);
+    } catch (e) {
+      console.error('Sunrise error', e);
+      nextSunEventEl.innerHTML = '<div class="sun-error">Kunne ikke hente soldata</div>';
+    }
+  }
+
   // --- Init ---
-  refreshImage(); fetchWeather(); fetchMoon(); loadForecastHourly(); updateStatus();
+  refreshImage(); fetchWeather(); fetchMoon(); loadForecastHourly(); loadSunriseSunset(); updateStatus();
   const imgTimer=setInterval(refreshImage, IMAGE_INTERVAL_MS);
   const weatherTimer=setInterval(fetchWeather, WEATHER_INTERVAL_MS);
   const statusTimer=setInterval(updateStatus, 1000);
   const moonTimer=setInterval(fetchMoon, 15*60_000);
   const fcTimer=setInterval(loadForecastHourly, 30*60_000);
-  window.addEventListener("focus", ()=>{ refreshImage(); fetchWeather(); fetchMoon(); loadForecastHourly(); });
-  window.addEventListener("beforeunload", ()=>{ clearInterval(imgTimer); clearInterval(weatherTimer); clearInterval(statusTimer); clearInterval(moonTimer); clearInterval(fcTimer); });
+  const sunTimer=setInterval(loadSunriseSunset, 30*60_000);
+  window.addEventListener("focus", ()=>{ refreshImage(); fetchWeather(); fetchMoon(); loadForecastHourly(); loadSunriseSunset(); });
+  window.addEventListener("beforeunload", ()=>{ clearInterval(imgTimer); clearInterval(weatherTimer); clearInterval(statusTimer); clearInterval(moonTimer); clearInterval(fcTimer); clearInterval(sunTimer); });
   </script>
 
   <!-- AIS-kode (uendret, men beholdt tooltip m.m.) -->
