@@ -16,6 +16,7 @@ class SunriseService {
     private const LAT = "64.3278592";
     private const LON = "10.4155161";
 
+
     private $timezone;
 
     public function __construct() {
