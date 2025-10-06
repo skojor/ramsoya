@@ -3,7 +3,7 @@ header('Content-Type: application/json');
 header('Cache-Control: no-cache');
 header('Access-Control-Allow-Origin: *');
 
-$imageUrl = 'https://ramsoy.skorstad.name/siste.jpg';
+$imageUrl = 'https://ramsoyvika.no/siste.jpg';
 
 // Get headers from the image
 $headers = get_headers($imageUrl, 1);
