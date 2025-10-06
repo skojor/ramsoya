@@ -205,6 +205,11 @@ class SunriseService {
             'sunset' => 'Solnedgang'
         ];
 
+        $eventIcons = [
+            'sunrise' => 'ikoner/sunrise.svg',
+            'sunset' => 'ikoner/sunset.svg',
+        ];
+
         $now = new DateTime('now', $this->timezone);
         $today = clone $now;
         $tomorrow = clone $now;
@@ -231,7 +236,8 @@ class SunriseService {
                     'time' => $todaySunrise->format('H:i'),
                     'date' => $today->format('Y-m-d'),
                     'dayLabel' => 'I dag',
-                    'datetime' => $todaySunrise
+                    'datetime' => $todaySunrise,
+                    'icon' => $eventIcons['sunrise'],
                 ];
             }
 
@@ -242,7 +248,8 @@ class SunriseService {
                     'time' => $todaySunset->format('H:i'),
                     'date' => $today->format('Y-m-d'),
                     'dayLabel' => 'I dag',
-                    'datetime' => $todaySunset
+                    'datetime' => $todaySunset,
+                    'icon' => $eventIcons['sunset'],
                 ];
             }
 
@@ -257,7 +264,8 @@ class SunriseService {
                     'time' => $tomorrowSunrise->format('H:i'),
                     'date' => $tomorrow->format('Y-m-d'),
                     'dayLabel' => 'I morgen',
-                    'datetime' => $tomorrowSunrise
+                    'datetime' => $tomorrowSunrise,
+                    'icon' => $eventIcons['sunrise'],
                 ];
             }
 
@@ -268,7 +276,8 @@ class SunriseService {
                     'time' => $tomorrowSunset->format('H:i'),
                     'date' => $tomorrow->format('Y-m-d'),
                     'dayLabel' => 'I morgen',
-                    'datetime' => $tomorrowSunset
+                    'datetime' => $tomorrowSunset,
+                    'icon' => $eventIcons['sunset'],
                 ];
             }
 
