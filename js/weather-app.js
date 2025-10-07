@@ -1,5 +1,12 @@
 // Main application initialization
-class WeatherApp {
+import { CONFIG } from './constants.js';
+import { ImageManager } from './image-manager.js';
+import { WeatherManager } from './weather-manager.js';
+import { MoonManager } from './moon-manager.js';
+import { ForecastManager } from './forecast-manager.js';
+import { SolarManager } from './solar-manager.js';
+
+export class WeatherApp {
     constructor() {
         this.imageManager = new ImageManager();
         this.weatherManager = new WeatherManager();
@@ -25,12 +32,12 @@ class WeatherApp {
 
     setupTimers() {
         this.timers.push(
-            setInterval(() => this.imageManager.refreshImage(), CONFIG.IMAGE_INTERVAL_MS),
-            setInterval(() => this.weatherManager.fetchWeather(), CONFIG.WEATHER_INTERVAL_MS),
-            setInterval(() => this.imageManager.updateStatus(), 1000),
-            setInterval(() => this.moonManager.fetchMoon(), 15 * 60_000),
-            setInterval(() => this.forecastManager.loadForecastHourly(), 30 * 60_000),
-            setInterval(() => this.solarManager.loadSunriseSunset(), 30 * 60_000)
+            setInterval(() => this.imageManager.refreshImage(), CONFIG.INTERVALS.IMAGE_REFRESH),
+            setInterval(() => this.weatherManager.fetchWeather(), CONFIG.INTERVALS.WEATHER_REFRESH),
+            setInterval(() => this.imageManager.updateStatus(), CONFIG.INTERVALS.IMAGE_STATUS),
+            setInterval(() => this.moonManager.fetchMoon(), CONFIG.INTERVALS.MOON_REFRESH),
+            setInterval(() => this.forecastManager.loadForecastHourly(), CONFIG.INTERVALS.FORECAST_REFRESH),
+            setInterval(() => this.solarManager.loadSunriseSunset(), CONFIG.INTERVALS.SOLAR_REFRESH)
         );
     }
 
@@ -49,9 +56,4 @@ class WeatherApp {
     }
 }
 
-// Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    const app = new WeatherApp();
-    app.init();
-});
-
+// Export the class but don't initialize here - let main.js handle it

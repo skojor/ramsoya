@@ -1,13 +1,13 @@
 // Utility functions
-const norm360 = d => ((d % 360) + 360) % 360;
+export const norm360 = d => ((d % 360) + 360) % 360;
 
-function bust(url) {
+export function bust(url) {
     const u = new URL(url, location.href);
     u.searchParams.set("_", Date.now());
     return u.toString();
 }
 
-function humanAge(ms) {
+export function humanAge(ms) {
     const s = Math.max(0, Math.floor(ms / 1000));
     if (s < 60) return `${s}s`;
     const m = Math.floor(s / 60), r = s % 60;
@@ -16,15 +16,18 @@ function humanAge(ms) {
     return `${h}t ${mr}m`;
 }
 
+// Import CONFIG for formatters
+import { CONFIG } from './constants.js';
+
 // Formatters
-const hourFmt = new Intl.DateTimeFormat('nb-NO', {
+export const hourFmt = new Intl.DateTimeFormat('nb-NO', {
     hour: '2-digit',
     minute: '2-digit',
     timeZone: CONFIG.TZ_OSLO,
     hour12: false
 });
 
-const dayFmt = new Intl.DateTimeFormat('nb-NO', {
+export const dayFmt = new Intl.DateTimeFormat('nb-NO', {
     weekday: 'short',
     day: '2-digit',
     timeZone: CONFIG.TZ_OSLO

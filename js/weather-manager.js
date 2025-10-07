@@ -1,7 +1,11 @@
 // Weather overlay management
-class WeatherManager {
+import { CONFIG } from './constants.js';
+import { bust } from './utils.js';
+
+export class WeatherManager {
     constructor() {
         this.overlayEl = document.getElementById("weatherOverlay");
+        this.lastWeatherTs = 0;
     }
 
     renderWeather(data) {
