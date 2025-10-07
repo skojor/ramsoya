@@ -212,42 +212,41 @@ export class TidalManager {
     }
 
     parseXmlTidalResponse(responseText) {
-        console.log('Tidal: Parsing XML response...');
+        console.log('Tidal: Parsing XML response using original method...');
         const events = [];
 
         try {
-            // Simple XML parsing for tidal data
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(responseText, 'text/xml');
 
-            const dataElements = xmlDoc.querySelectorAll('data');
-            console.log('Tidal: Found', dataElements.length, 'data elements in XML');
+            // Use the exact same approach as the original working code
+            const items = Array.from(xmlDoc.querySelectorAll('waterlevel')).map(el => ({
+                type: el.getAttribute('type') ?? el.getAttribute('flag') ?? el.getAttribute('kind') ?? el.getAttribute('tide'),
+                time: new Date(el.getAttribute('time')),
+                cm: Number(el.getAttribute('value'))
+            }));
 
-            dataElements.forEach((dataEl, index) => {
-                const time = dataEl.getAttribute('time');
-                const type = dataEl.getAttribute('flag'); // or 'type' depending on XML structure
-                const value = dataEl.getAttribute('value');
+            console.log('Tidal: Found', items.length, 'waterlevel elements');
+            console.log('Tidal: Raw items:', items);
 
-                console.log(`Tidal XML element ${index}:`, { time, type, value });
-
-                if (time && value) {
-                    const parsedTime = new Date(time);
-                    const cm = parseFloat(value) * 100; // Convert to cm if needed
-
-                    if (!isNaN(parsedTime.getTime()) && !isNaN(cm)) {
-                        events.push({
-                            time: parsedTime,
-                            type: type || 'unknown',
-                            cm
-                        });
-                    }
+            // Filter out invalid entries and return as events
+            items.forEach(item => {
+                if (item.time && !isNaN(item.time.getTime()) && !isNaN(item.cm)) {
+                    events.push(item);
                 }
             });
+
         } catch (error) {
             console.error('Tidal: XML parsing failed:', error);
         }
 
-        console.log('Tidal: XML parsed events:', events);
+        console.log('Tidal: Final events:', events);
         return events.sort((a, b) => a.time - b.time);
+    }
+
+    parseXmlWithRegex(responseText) {
+        // Remove this fallback method since the original approach should work
+        console.log('Tidal: Regex fallback not needed with correct XML parsing');
+        return [];
     }
 }
