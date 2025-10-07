@@ -1,7 +1,6 @@
 // Tidal data management
 import { CONFIG } from './constants.js';
 import { appState } from './state-manager.js';
-import { apiClient } from './api-client.js';
 import { UIComponents } from './ui-components.js';
 
 export class TidalManager {
@@ -120,19 +119,25 @@ export class TidalManager {
     async hentToNeste() {
         try {
             const url = this.buildTidalUrl();
-            const responseText = await apiClient.fetch(url, { method: 'GET' }, 'tidal');
+
+            // Use direct fetch since tidal API returns XML/text, not JSON
+            const response = await fetch(url, { cache: 'no-store' });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const responseText = await response.text();
 
             // Handle both null responses and text responses
             let tidalEvents = [];
-            if (responseText === null) {
+            if (!responseText || responseText.trim().length === 0) {
                 console.warn('Tidal API returned empty response');
                 tidalEvents = [];
-            } else if (typeof responseText === 'string' && responseText.trim().length > 0) {
-                // Parse tidal data from text response
-                tidalEvents = this.parseTidalResponse(responseText);
             } else {
-                console.warn('Unexpected tidal response type:', typeof responseText);
-                tidalEvents = [];
+                // Parse tidal data from XML/text response
+                tidalEvents = this.parseTidalResponse(responseText);
+                console.log('Parsed tidal events:', tidalEvents);
             }
 
             if (tidalEvents && tidalEvents.length > 0) {
