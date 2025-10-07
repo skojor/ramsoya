@@ -3,7 +3,7 @@ export const CONFIG = {
     // Core weather settings
     WIND_ARROW_MODE: 'to',
     WIND_FLIP: true,  // Wind direction configuration
-    IMG_URL: "/siste.jpg",
+    IMAGE_URL: "siste.jpg", // Fixed: renamed from IMG_URL and removed leading slash for consistency
     WEATHER_URL: "getweather_overlay.php",
     IMAGE_INTERVAL_MS: 20_000,
     WEATHER_INTERVAL_MS: 30_000,
