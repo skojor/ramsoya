@@ -94,16 +94,23 @@ export class ADSBManager {
     renderTable(aircraft) {
         // Convert aircraft data to table format
         const tableData = aircraft.map(a => {
-            const actions = a.callsign ?
-                `<a class="iconbtn" href="${this.flightAwareUrl(a.callsign)}" target="_blank" rel="noopener" title="Åpne i FlightAware" onclick="event.stopPropagation()">${this.iconPlane}</a>` : '';
+            const actions = (a.callsign || a.flight) ?
+                `<a class="iconbtn" href="${this.flightAwareUrl(a.callsign || a.flight)}" target="_blank" rel="noopener" title="Åpne i FlightAware" onclick="event.stopPropagation()">${this.iconPlane}</a>` : '';
 
             return {
-                callsign: a.callsign || "–",
-                aircraft_type: a.aircraft_type || "–",
-                altitude: (typeof a.alt_ft === "number") ? `${a.alt_ft}` : "–",
-                speed: (typeof a.spd_kn === "number") ? a.spd_kn.toFixed(1) : "–",
-                track: (a.track_deg != null) ? `${a.track_deg}°` : "–",
-                distance: (typeof a.dist_nm === "number") ? a.dist_nm.toFixed(1) : "–",
+                callsign: a.callsign || a.flight || "–",
+                aircraft_type: a.aircraft_type || a.t || "–",
+                altitude: (typeof a.alt_ft === "number") ? `${a.alt_ft}` :
+                         (typeof a.alt_baro === "number") ? `${a.alt_baro}` :
+                         (typeof a.altitude === "number") ? `${a.altitude}` : "–",
+                speed: (typeof a.spd_kn === "number") ? a.spd_kn.toFixed(1) :
+                       (typeof a.gs === "number") ? a.gs.toFixed(1) :
+                       (typeof a.speed === "number") ? a.speed.toFixed(1) : "–",
+                track: (a.track_deg != null) ? `${a.track_deg}°` :
+                       (a.track != null) ? `${a.track}°` : "–",
+                distance: (typeof a.dist_nm === "number") ? a.dist_nm.toFixed(1) :
+                         (typeof a.distance_nm === "number") ? a.distance_nm.toFixed(1) :
+                         (typeof a.distance_km === "number") ? (a.distance_km / 1.852).toFixed(1) : "–",
                 actions: actions,
                 _aircraft: a // Keep reference for tooltip
             };
