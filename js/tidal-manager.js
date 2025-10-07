@@ -1,9 +1,11 @@
 // Tidal data management
+import { CONFIG } from './constants.js';
+
 export class TidalManager {
     constructor() {
-        this.lat = 64.3278592;
-        this.lon = 10.4155161;
-        this.refreshMs = 30 * 60 * 1000; // 30 minutes
+        this.lat = CONFIG.LOCATION.LAT;
+        this.lon = CONFIG.LOCATION.LON;
+        this.refreshMs = CONFIG.INTERVALS.TIDAL_REFRESH;
 
         this.elements = {
             tideNext1: () => document.getElementById('tideNext1'),
@@ -52,7 +54,7 @@ export class TidalManager {
         try {
             const now = new Date();
             const to = new Date(now.getTime() + 72 * 60 * 60 * 1000);
-            const url = new URL('https://vannstand.kartverket.no/tideapi.php');
+            const url = new URL(CONFIG.ENDPOINTS.TIDAL);
             url.search = new URLSearchParams({
                 tide_request: 'locationdata',
                 lat: String(this.lat),

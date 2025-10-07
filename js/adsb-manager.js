@@ -1,12 +1,13 @@
 // ADS-B aircraft tracking management
+import { CONFIG } from './constants.js';
 import { ensureTooltip, positionTooltip } from './tooltip-helpers.js';
 
 export class ADSBManager {
     constructor() {
-        this.origin = {lat: 64.3278592, lon: 10.4155161}; // Ramsøyvika
-        this.maxDistKm = 100;   // radius
-        this.maxSeenS = 60;    // nylig sett
-        this.refreshMs = 20_000;
+        this.origin = {lat: CONFIG.LOCATION.LAT, lon: CONFIG.LOCATION.LON};
+        this.maxDistKm = CONFIG.ADSB.MAX_DIST_KM;
+        this.maxSeenS = CONFIG.ADSB.MAX_SEEN_S;
+        this.refreshMs = CONFIG.INTERVALS.ADSB_REFRESH;
 
         this.iconSearch = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4z"/></svg>`;
 
@@ -102,15 +103,15 @@ export class ADSBManager {
     }
 
     fr24FlightUrl(flight) {
-        return 'https://www.flightradar24.com/64.32,10.41/8';
+        return CONFIG.EXTERNAL.FLIGHTRADAR24;
     }
 
     googleFlightUrl(flight) {
-        return `https://www.google.com/search?q=${encodeURIComponent(flight + ' flight')}`;
+        return `${CONFIG.EXTERNAL.GOOGLE_FLIGHT_SEARCH}${encodeURIComponent(flight + ' flight')}`;
     }
 
     async fetchAircraft() {
-        const url = `/adsb_proxy.php?lat=${this.origin.lat}&lon=${this.origin.lon}&radius=${this.maxDistKm}&max_age=${this.maxSeenS}`;
+        const url = `${CONFIG.ENDPOINTS.ADSB}?lat=${this.origin.lat}&lon=${this.origin.lon}&radius=${this.maxDistKm}&max_age=${this.maxSeenS}`;
         const res = await fetch(url, {cache: 'no-store'});
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();

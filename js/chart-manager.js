@@ -1,12 +1,14 @@
 // Weather statistics chart management
+import { CONFIG } from './constants.js';
+
 export class ChartManager {
     constructor() {
-        Chart.defaults.devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        Chart.defaults.devicePixelRatio = Math.min(window.devicePixelRatio || 1, CONFIG.CHARTS.DEVICE_PIXEL_RATIO_MAX);
 
-        this.endpoint = '/verdata_split.php';
-        this.tz = 'Europe/Oslo';
-        this.currentRange = '24h';
-        this.refreshMs = 60_000;
+        this.endpoint = CONFIG.ENDPOINTS.CHARTS;
+        this.tz = CONFIG.TZ_OSLO;
+        this.currentRange = CONFIG.CHARTS.DEFAULT_RANGE;
+        this.refreshMs = CONFIG.INTERVALS.CHART_REFRESH;
 
         this.elements = {
             updated: () => document.getElementById('updatedTxt'),
@@ -25,19 +27,20 @@ export class ChartManager {
     }
 
     intervalFor(range) {
+        // Use centralized chart interval configuration
         if (range.endsWith('h')) {
             const h = parseInt(range, 10);
-            if (h <= 6) return '5m';
-            if (h <= 12) return '10m';
-            return '10m';
+            if (h <= 6) return CONFIG.CHARTS.INTERVALS['6h'];
+            if (h <= 12) return CONFIG.CHARTS.INTERVALS['12h'];
+            return CONFIG.CHARTS.INTERVALS['24h'];
         }
         if (range.endsWith('d')) {
             const d = parseInt(range, 10);
-            if (d <= 3) return '30m';
-            if (d <= 7) return '1h';
-            return '3h';
+            if (d <= 3) return CONFIG.CHARTS.INTERVALS['3d'];
+            if (d <= 7) return CONFIG.CHARTS.INTERVALS['7d'];
+            return CONFIG.CHARTS.INTERVALS['7d'];
         }
-        return '10m';
+        return CONFIG.CHARTS.INTERVALS['24h'];
     }
 
     buildURL(range, interval) {
@@ -45,7 +48,7 @@ export class ChartManager {
         return `${this.endpoint}?${p.toString()}`;
     }
 
-    downsample(points, maxN = 4000) {
+    downsample(points, maxN = CONFIG.CHARTS.MAX_POINTS) {
         const n = points.length;
         if (n <= maxN) return points;
         const step = Math.ceil(n / maxN);

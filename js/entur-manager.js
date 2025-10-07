@@ -1,8 +1,10 @@
 // Entur public transport data management
+import { CONFIG } from './constants.js';
+
 export class EnturManager {
     constructor() {
-        this.apiUrl = 'entur_api.php';
-        this.refreshMs = 60_000; // 1 minute
+        this.apiUrl = CONFIG.ENDPOINTS.ENTUR;
+        this.refreshMs = CONFIG.INTERVALS.ENTUR_REFRESH;
 
         this.iconPin = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/></svg>`;
 
@@ -31,7 +33,7 @@ export class EnturManager {
         const timeStr = new Intl.DateTimeFormat('nb-NO', {
             hour: '2-digit',
             minute: '2-digit',
-            timeZone: 'Europe/Oslo'
+            timeZone: CONFIG.TZ_OSLO
         }).format(depTime);
 
         if (depDate.getTime() === today.getTime()) {
@@ -42,7 +44,7 @@ export class EnturManager {
             const dayStr = new Intl.DateTimeFormat('nb-NO', {
                 weekday: 'short',
                 day: 'numeric',
-                timeZone: 'Europe/Oslo'
+                timeZone: CONFIG.TZ_OSLO
             }).format(depTime);
             return timeStr + ' <span class="badge-tomorrow">(' + dayStr + ')</span>';
         }

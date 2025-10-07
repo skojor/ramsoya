@@ -8,9 +8,10 @@ import { TidalManager } from './tidal-manager.js';
 import { EnturManager } from './entur-manager.js';
 import { ChartManager } from './chart-manager.js';
 import { UIManager } from './ui-manager.js';
+import { CONFIG } from './constants.js';
 
 // Legacy global configuration for backward compatibility
-window.WIND_FLIP = true;
+window.WIND_FLIP = CONFIG.WIND_FLIP;
 
 // Initialize all manager classes when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {

@@ -1,10 +1,11 @@
 // AIS vessel tracking management
+import { CONFIG } from './constants.js';
 import { ensureTooltip, positionTooltip } from './tooltip-helpers.js';
 
 export class AISManager {
     constructor() {
-        this.endpoint = "getaislist.php";
-        this.refreshMs = 20_000;
+        this.endpoint = CONFIG.ENDPOINTS.AIS;
+        this.refreshMs = CONFIG.INTERVALS.AIS_REFRESH;
         this.iconShip = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.59 13.41L12 10 3.41 13.41 2 12l10-4 10 4-1.41 1.41zM4 16c1.1 0 2 .9 2 2h12a2 2 0 114 0h-2a2 2 0 10-4 0H8a2 2 0 10-4 0H2a2 2 0 110-4h2z"/></svg>`;
 
         // DOM element getters
@@ -42,7 +43,7 @@ export class AISManager {
 
     marineTrafficUrl(mmsi) {
         if (!mmsi) return null;
-        return `https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}`;
+        return `${CONFIG.EXTERNAL.MARINE_TRAFFIC}${mmsi}`;
     }
 
     renderRows(vessels) {
@@ -55,7 +56,7 @@ export class AISManager {
 
             // Event listeners
             tr.addEventListener("click", () => {
-                window.open("https://ramsoy.iship.no", "_blank", "noopener");
+                window.open(CONFIG.EXTERNAL.RAMSOY_ISHIP, "_blank", "noopener");
             });
 
             tr.addEventListener("mouseenter", e => {

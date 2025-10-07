@@ -27,7 +27,7 @@ export class ImageManager {
 
     async updateImageCaptureTime() {
         try {
-            const res = await fetch('/image_metadata_proxy.php', {
+            const res = await fetch(CONFIG.ENDPOINTS.IMAGE_METADATA, {
                 cache: 'no-cache',
                 headers: { 'Accept': 'application/json' }
             });
@@ -58,7 +58,7 @@ export class ImageManager {
             return;
         }
         const ageSec = Math.floor((Date.now() - this.imageCaptureTs) / 1000);
-        this.statusEl.className = "status-pill " + (ageSec > 300 ? "bad" : ageSec > 120 ? "warn" : "ok");
+        this.statusEl.className = "status-pill " + (ageSec > CONFIG.STATUS.IMAGE_AGE_BAD_SEC ? "bad" : ageSec > CONFIG.STATUS.IMAGE_AGE_WARN_SEC ? "warn" : "ok");
         this.statusText.textContent = `Bilde ${humanAge(Date.now() - this.imageCaptureTs)} gammelt`;
     }
 }
