@@ -1,5 +1,7 @@
 // Tidal data management
 import { CONFIG } from './constants.js';
+import { appState } from './state-manager.js';
+import { reportError } from './error-handler.js';
 
 export class TidalManager {
     constructor() {
@@ -12,7 +14,17 @@ export class TidalManager {
             tideNext2: () => document.getElementById('tideNext2')
         };
 
+        this.setupStateSubscriptions();
         this.init();
+    }
+
+    setupStateSubscriptions() {
+        // Update UI when tidal data changes
+        appState.subscribe('location.tidal', (tidalData) => {
+            if (tidalData) {
+                this.renderTidalData(tidalData);
+            }
+        });
     }
 
     init() {
@@ -50,6 +62,24 @@ export class TidalManager {
         return (cm / 100).toFixed(2) + ' m';
     }
 
+    renderTidalData(tidalData) {
+        const [a, b] = tidalData;
+        const el1 = this.elements.tideNext1();
+        const el2 = this.elements.tideNext2();
+
+        if (a) {
+            el1.textContent = `${this.norskType(a.type)}${a.type ? " " : ""}${this.fmtTid(a.time)} (${this.fmtM(a.cm)})`;
+        } else {
+            el1.textContent = '—';
+        }
+
+        if (b) {
+            el2.textContent = `${this.norskType(b.type)}${b.type ? " " : ""}${this.fmtTid(b.time)} (${this.fmtM(b.cm)})`;
+        } else {
+            el2.textContent = '—';
+        }
+    }
+
     async hentToNeste() {
         try {
             const now = new Date();
@@ -69,6 +99,11 @@ export class TidalManager {
             }).toString();
 
             const res = await fetch(url, {cache: 'no-store'});
+
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: Failed to fetch tidal data`);
+            }
+
             const xml = await res.text();
             const doc = new DOMParser().parseFromString(xml, 'text/xml');
             const items = Array.from(doc.querySelectorAll('waterlevel')).slice(0, 2).map(el => ({
@@ -77,23 +112,12 @@ export class TidalManager {
                 cm: Number(el.getAttribute('value'))
             }));
 
-            const [a, b] = items;
-            const el1 = this.elements.tideNext1();
-            const el2 = this.elements.tideNext2();
+            // Update state instead of direct rendering
+            appState.setState('location.tidal', items);
 
-            if (a) {
-                el1.textContent = `${this.norskType(a.type)}${a.type ? " " : ""}${this.fmtTid(a.time)} (${this.fmtM(a.cm)})`;
-            } else {
-                el1.textContent = '—';
-            }
-
-            if (b) {
-                el2.textContent = `${this.norskType(b.type)}${b.type ? " " : ""}${this.fmtTid(b.time)} (${this.fmtM(b.cm)})`;
-            } else {
-                el2.textContent = '—';
-            }
-        } catch (err) {
-            console.error('Tidal data error:', err);
+        } catch (error) {
+            reportError('tidal', error, 'Failed to fetch tidal data from Kartverket');
+            appState.setState('location.tidal', null);
             this.elements.tideNext1().textContent = 'Feil ved henting';
             this.elements.tideNext2().textContent = '—';
         }

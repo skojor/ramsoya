@@ -35,11 +35,12 @@ export class ErrorHandler {
         });
     }
 
-    addError(type, message) {
+    addError(type, message, context = null) {
         const errors = appState.getState('ui.errors') || [];
         errors.push({
             type,
             message,
+            context,
             timestamp: Date.now(),
             id: Date.now() + Math.random()
         });
@@ -65,99 +66,47 @@ export class ErrorHandler {
     }
 
     displayErrors(errors) {
-        // Only show critical errors in UI
-        const criticalErrors = errors.filter(error =>
-            ['weather', 'ais', 'adsb', 'image'].includes(error.type)
-        );
-
-        if (criticalErrors.length === 0) {
-            this.hideErrorContainer();
-            return;
-        }
-
-        // Show the most recent critical error
-        const latestError = criticalErrors[criticalErrors.length - 1];
-        this.showErrorContainer(latestError);
+        // No UI notifications - just console logging
+        // Users should not see error popups on this site
+        return;
     }
 
     showErrorContainer(error) {
-        if (!this.errorContainer) {
-            this.createErrorContainer();
-        }
-
-        const timeAgo = Math.floor((Date.now() - error.timestamp) / 1000);
-        this.errorContainer.innerHTML = `
-            <div class="error-content">
-                <span class="error-icon">⚠️</span>
-                <span class="error-message">${error.message}</span>
-                <span class="error-time">${timeAgo}s ago</span>
-                <button class="error-close" onclick="this.parentElement.parentElement.style.display='none'">×</button>
-            </div>
-        `;
-        this.errorContainer.style.display = 'block';
+        // Disabled - no error notifications to users
+        return;
     }
 
     hideErrorContainer() {
-        if (this.errorContainer) {
-            this.errorContainer.style.display = 'none';
-        }
+        // Disabled - no error notifications to users
+        return;
     }
 
     createErrorContainer() {
-        this.errorContainer = document.createElement('div');
-        this.errorContainer.id = 'global-errors';
-        this.errorContainer.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(220, 53, 69, 0.95);
-            color: white;
-            padding: 12px;
-            border-radius: 8px;
-            max-width: 300px;
-            z-index: 10000;
-            display: none;
-            font-family: system-ui, -apple-system, sans-serif;
-            font-size: 14px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        `;
-
-        const style = document.createElement('style');
-        style.textContent = `
-            #global-errors .error-content {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
-            #global-errors .error-icon {
-                font-size: 16px;
-            }
-            #global-errors .error-message {
-                flex: 1;
-                word-break: break-word;
-            }
-            #global-errors .error-time {
-                font-size: 12px;
-                opacity: 0.8;
-            }
-            #global-errors .error-close {
-                background: none;
-                border: none;
-                color: white;
-                font-size: 18px;
-                cursor: pointer;
-                padding: 0;
-                margin-left: 8px;
-            }
-            #global-errors .error-close:hover {
-                opacity: 0.7;
-            }
-        `;
-
-        document.head.appendChild(style);
-        document.body.appendChild(this.errorContainer);
+        // Disabled - no error notifications to users
+        return;
     }
 }
+
+// Centralized error reporting utility
+export const reportError = (type, error, context = null) => {
+    const message = error?.message || String(error);
+    const errors = appState.getState('ui.errors') || [];
+    errors.push({
+        type,
+        message,
+        context,
+        timestamp: Date.now(),
+        id: Date.now() + Math.random()
+    });
+
+    // Keep only recent errors
+    if (errors.length > 10) {
+        errors.shift();
+    }
+
+    appState.setState('ui.errors', errors);
+    console.error(`${type} error:`, error, context ? `Context: ${context}` : '');
+};
 
 // State-based activity tracker
 export class ActivityTracker {

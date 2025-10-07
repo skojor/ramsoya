@@ -184,8 +184,19 @@ appState.setState('transport.entur', null, { silent: true });
 appState.setState('astronomy.moon', null, { silent: true });
 appState.setState('astronomy.solar', null, { silent: true });
 
+// Chart data
+appState.setState('charts.data', null, { silent: true });
+
 // UI state
 appState.setState('ui.activeTab', null, { silent: true });
 appState.setState('ui.errors', [], { silent: true });
+appState.setState('ui.loading', {}, { silent: true }); // Track loading states for different components
+
+// Error context state
+appState.setState('errors.weather', null, { silent: true });
+appState.setState('errors.image', null, { silent: true });
+appState.setState('errors.ais', null, { silent: true });
+appState.setState('errors.adsb', null, { silent: true });
+appState.setState('errors.entur', null, { silent: true });
 
 console.log('State management initialized');

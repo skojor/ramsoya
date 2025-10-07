@@ -2,6 +2,7 @@
 import { CONFIG } from './constants.js';
 import { ensureTooltip, positionTooltip } from './tooltip-helpers.js';
 import { appState } from './state-manager.js';
+import { reportError } from './error-handler.js';
 
 export class AISManager {
     constructor() {
@@ -170,7 +171,26 @@ export class AISManager {
             this.elements.error().hidden = true;
             const res = await fetch(this.endpoint, {cache: "no-store"});
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
+
+            const text = await res.text();
+
+            // Check for empty response
+            if (!text || text.trim().length === 0) {
+                console.warn('Empty AIS response received');
+                appState.setState('location.ais', []);
+                return;
+            }
+
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (parseError) {
+                // Don't report JSON parsing errors as critical - just log them
+                console.warn('AIS API returned invalid JSON:', parseError.message);
+                appState.setState('location.ais', []);
+                return;
+            }
+
             const vessels = Array.isArray(data?.vessels) ? data.vessels : [];
 
             // Update state instead of calling render directly
@@ -180,14 +200,12 @@ export class AISManager {
             console.error("AIS feil:", err);
             appState.setState('location.ais', []);
 
-            // Add error to global error state
-            const errors = appState.getState('ui.errors') || [];
-            errors.push({
-                type: 'ais',
-                message: err.message,
-                timestamp: Date.now()
-            });
-            appState.setState('ui.errors', errors);
+            // Only report non-parsing errors as critical
+            if (!err.message.includes('JSON') && !err.message.includes('Unexpected token') && !err.message.includes('Invalid JSON')) {
+                reportError('ais', err, 'AIS vessel data unavailable');
+            } else {
+                console.warn('AIS parsing issue:', err.message);
+            }
         }
     }
 }
