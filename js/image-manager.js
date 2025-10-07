@@ -7,7 +7,7 @@ import { UIComponents } from './ui-components.js';
 
 export class ImageManager {
     constructor() {
-        this.imageEl = document.getElementById("image");
+        this.imageEl = document.getElementById("cam"); // Fixed: changed from "image" to "cam" to match HTML
         this.refreshMs = CONFIG.INTERVALS.IMAGE_REFRESH;
         this.lastImageTs = 0;
 
