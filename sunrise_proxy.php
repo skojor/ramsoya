@@ -102,12 +102,11 @@ class SunriseService {
             return true;
         }
 
-        // If the event is more than 24 hours in the future, return true (set to null)
+        // If the event is more than 24 hours away, return true (set to null)
         if ($dateTime > $next24Hours) {
             return true;
         }
 
-        // Event is within the next 24 hours, so show it (return false)
         return false;
     }
 
@@ -334,68 +333,131 @@ class SunriseService {
             'status' => $sunTimes['status']
         ];
     }
+
+    /**
+     * Get all solar events for today and tomorrow
+     */
+    public function getAllEvents() {
+        try {
+            $now = new DateTime('now', $this->timezone);
+            $next24Hours = clone $now;
+            $next24Hours->add(new DateInterval('PT24H'));
+
+            $today = clone $now;
+            $tomorrow = clone $now;
+            $tomorrow->add(new DateInterval('P1D'));
+
+            // Fetch data for today and tomorrow
+            $todayData = $this->fetchSunData($today);
+            $tomorrowData = $this->fetchSunData($tomorrow);
+
+            // Convert all times to Oslo timezone
+            $todaySunrise = $this->convertToOsloTime($todayData['sunrise']);
+            $todaySunset = $this->convertToOsloTime($todayData['sunset']);
+            $tomorrowSunrise = $this->convertToOsloTime($tomorrowData['sunrise']);
+            $tomorrowSunset = $this->convertToOsloTime($tomorrowData['sunset']);
+
+            // Collect all events within the next 24 hours in chronological order
+            $allEvents = [];
+
+            // Check today's sunrise
+            if ($todaySunrise && $todaySunrise >= $now && $todaySunrise <= $next24Hours) {
+                $allEvents[] = [
+                    'type' => 'sunrise',
+                    'datetime' => $todaySunrise,
+                    'iso' => $todaySunrise->format('c'),
+                    'time' => $todaySunrise->format('H:i'),
+                    'label' => 'Soloppgang',
+                    'dayLabel' => 'I dag',
+                    'icon' => 'sunrise.svg'
+                ];
+            }
+
+            // Check today's sunset
+            if ($todaySunset && $todaySunset >= $now && $todaySunset <= $next24Hours) {
+                $allEvents[] = [
+                    'type' => 'sunset',
+                    'datetime' => $todaySunset,
+                    'iso' => $todaySunset->format('c'),
+                    'time' => $todaySunset->format('H:i'),
+                    'label' => 'Solnedgang',
+                    'dayLabel' => 'I dag',
+                    'icon' => 'sunset.svg'
+                ];
+            }
+
+            // Check tomorrow's sunrise (if within 24 hours)
+            if ($tomorrowSunrise && $tomorrowSunrise >= $now && $tomorrowSunrise <= $next24Hours) {
+                $allEvents[] = [
+                    'type' => 'sunrise',
+                    'datetime' => $tomorrowSunrise,
+                    'iso' => $tomorrowSunrise->format('c'),
+                    'time' => $tomorrowSunrise->format('H:i'),
+                    'label' => 'Soloppgang',
+                    'dayLabel' => 'I morgen',
+                    'icon' => 'sunrise.svg'
+                ];
+            }
+
+            // Check tomorrow's sunset (if within 24 hours)
+            if ($tomorrowSunset && $tomorrowSunset >= $now && $tomorrowSunset <= $next24Hours) {
+                $allEvents[] = [
+                    'type' => 'sunset',
+                    'datetime' => $tomorrowSunset,
+                    'iso' => $tomorrowSunset->format('c'),
+                    'time' => $tomorrowSunset->format('H:i'),
+                    'label' => 'Solnedgang',
+                    'dayLabel' => 'I morgen',
+                    'icon' => 'sunset.svg'
+                ];
+            }
+
+            // Sort events chronologically
+            usort($allEvents, function($a, $b) {
+                return $a['datetime'] <=> $b['datetime'];
+            });
+
+            // Remove datetime objects from final output (not JSON serializable)
+            foreach ($allEvents as &$event) {
+                unset($event['datetime']);
+            }
+
+            // Return all events, not just one of each type
+            return [
+                'events' => $allEvents,
+                'count' => count($allEvents),
+                'timezone' => 'Europe/Oslo'
+            ];
+
+        } catch (Exception $e) {
+            error_log("Sunrise API Error: " . $e->getMessage());
+            throw $e;
+        }
+    }
 }
 
-// Handle the request
+// Main execution
 try {
     $service = new SunriseService();
 
-    // Check for date parameter
-    $dateParam = $_GET['date'] ?? null;
-    $requestedDate = null;
+    // Check if specific type is requested
+    $type = $_GET['type'] ?? 'next';
 
-    if ($dateParam) {
-        try {
-            $requestedDate = new DateTime($dateParam, new DateTimeZone('Europe/Oslo'));
-        } catch (Exception $e) {
-            echo json_encode([
-                'error' => 'Invalid date format. Use YYYY-MM-DD',
-                'status' => 'error'
-            ]);
-            exit;
-        }
-    }
-
-    // Determine which data to return based on query parameters
-    if (isset($_GET['type'])) {
-        $type = strtolower($_GET['type']);
-        switch ($type) {
-            case 'sunrise':
-                $result = $service->getSunrise($requestedDate);
-                break;
-            case 'sunset':
-                $result = $service->getSunset($requestedDate);
-                break;
-            case 'all-events':
-                // Return all solar events within next 24 hours
-                $result = $service->getAllUpcomingSolarEvents();
-                break;
-            case 'frontend':
-            case 'today-tomorrow':
-                // Return today's and tomorrow's data for frontend
-                $result = $service->getTodayAndTomorrowSunTimes();
-                break;
-            default:
-                $result = $service->getSunTimes($requestedDate);
-        }
+    if ($type === 'all-events') {
+        $result = $service->getAllEvents();
     } else {
-        // Check if frontend needs today/tomorrow data
-        if (isset($_GET['frontend']) || isset($_GET['today_tomorrow'])) {
-            $result = $service->getTodayAndTomorrowSunTimes();
-        } else {
-            // Default: return both sunrise and sunset for single day
-            $result = $service->getSunTimes($requestedDate);
-        }
+        // Default: just get next event
+        $result = $service->getAllEvents();
     }
 
-    echo json_encode($result, JSON_UNESCAPED_UNICODE);
+    echo json_encode($result, JSON_PRETTY_PRINT);
 
 } catch (Exception $e) {
-    error_log("Sunrise Proxy Error: " . $e->getMessage());
+    http_response_code(500);
     echo json_encode([
-        'sunrise' => null,
-        'sunset' => null,
-        'status' => 'error',
-        'message' => 'Internal server error'
-    ]);
+        'error' => 'Internal server error',
+        'message' => $e->getMessage()
+    ], JSON_PRETTY_PRINT);
 }
+
+?>

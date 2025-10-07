@@ -368,56 +368,57 @@ body{
 }
 
 .sun-event {
-    padding: 8px;
-    display: block;
-}
-
-.sun-loading {
-    opacity: .7;
-    font-size: .9em;
-    color: #a9b3bd;
-    text-align: center;
-    padding: 12px 8px;
-}
-
-.sun-events {
-    display: grid;
-    gap: 6px;
-}
-
-.sun-event-item {
+    padding: 12px;
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
+    align-items: center;
     gap: 8px;
-    font-size: .95rem;
-    line-height: 1.35;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: var(--radius);
+    background: rgba(255,255,255,.02);
+    flex: 1;
+    min-width: 0;
 }
 
-.sun-event-label {
+.sun-event .sun-icon {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.sun-event .sun-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sun-event .sun-label {
+    font-size: 0.9rem;
     color: #a9b3bd;
     opacity: .85;
+    line-height: 1.2;
 }
 
-.sun-event-time {
+.sun-event .sun-time {
     font-weight: 600;
     color: #e6edf3;
+    font-size: 0.95rem;
+    line-height: 1.2;
 }
 
-.sun-error {
-    color: #ffb3b3;
-    opacity: .8;
-    font-size: .9em;
-    text-align: center;
-    padding: 12px 8px;
+.sun-separator {
+    display: none;
 }
 
-.sun-none {
-    color: #a9b3bd;
-    opacity: .8;
-    font-size: .9em;
-    text-align: center;
-    padding: 12px 8px;
+/* Mobile/smaller screens - stack vertically */
+@media (max-width: 640px) {
+    .sun-events {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .sun-event {
+        flex: none;
+    }
 }
 
 /* Adjust astro-row for three columns */
