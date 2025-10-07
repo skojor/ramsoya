@@ -1,11 +1,24 @@
 // Weather overlay management
 import { CONFIG } from './constants.js';
 import { bust } from './utils.js';
+import { appState } from './state-manager.js';
 
 export class WeatherManager {
     constructor() {
         this.overlayEl = document.getElementById("weatherOverlay");
         this.lastWeatherTs = 0;
+
+        // Subscribe to state changes
+        this.setupStateSubscriptions();
+    }
+
+    setupStateSubscriptions() {
+        // Re-render when weather data changes
+        appState.subscribe('weather.current', (weatherData) => {
+            if (weatherData) {
+                this.renderWeather(weatherData);
+            }
+        });
     }
 
     renderWeather(data) {
@@ -81,11 +94,22 @@ export class WeatherManager {
                 json = JSON.parse(cleaned);
             }
 
-            this.renderWeather(json);
+            // Update state instead of calling render directly
+            appState.setState('weather.current', json);
+            appState.setState('weather.lastUpdate', Date.now());
             this.lastWeatherTs = Date.now();
             this.updateStatus();
         } catch (e) {
             console.error("Værfeil:", e);
+            appState.setState('weather.current', null);
+            // Add error to global error state
+            const errors = appState.getState('ui.errors') || [];
+            errors.push({
+                type: 'weather',
+                message: e.message,
+                timestamp: Date.now()
+            });
+            appState.setState('ui.errors', errors);
         }
     }
 

@@ -1,6 +1,7 @@
 // AIS vessel tracking management
 import { CONFIG } from './constants.js';
 import { ensureTooltip, positionTooltip } from './tooltip-helpers.js';
+import { appState } from './state-manager.js';
 
 export class AISManager {
     constructor() {
@@ -19,7 +20,24 @@ export class AISManager {
             table: () => document.getElementById("ais-table")
         };
 
+        this.setupStateSubscriptions();
         this.init();
+    }
+
+    setupStateSubscriptions() {
+        // Re-render when AIS data changes
+        appState.subscribe('location.ais', (vessels) => {
+            this.renderVessels(vessels);
+        });
+
+        // Update UI when there are errors
+        appState.subscribe('ui.errors', (errors) => {
+            const aisErrors = errors.filter(e => e.type === 'ais');
+            if (aisErrors.length > 0) {
+                this.elements.error().hidden = false;
+                this.elements.updated().textContent = "feil ved oppdatering";
+            }
+        });
     }
 
     init() {
@@ -44,6 +62,17 @@ export class AISManager {
     marineTrafficUrl(mmsi) {
         if (!mmsi) return null;
         return `${CONFIG.EXTERNAL.MARINE_TRAFFIC}${mmsi}`;
+    }
+
+    renderVessels(vessels) {
+        const hasRows = vessels.length > 0;
+        this.elements.wrap().hidden = !hasRows;
+        this.elements.empty().hidden = hasRows;
+        this.elements.count().textContent = vessels.length;
+        this.elements.updated().textContent = `oppdatert ${this.fmtUpdated()}`;
+
+        // Existing render logic
+        this.renderRows(vessels);
     }
 
     renderRows(vessels) {
@@ -143,17 +172,22 @@ export class AISManager {
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             const vessels = Array.isArray(data?.vessels) ? data.vessels : [];
-            const hasRows = vessels.length > 0;
 
-            this.elements.wrap().hidden = !hasRows;
-            this.elements.empty().hidden = hasRows;
-            this.renderRows(vessels);
-            this.elements.count().textContent = vessels.length;
-            this.elements.updated().textContent = `oppdatert ${this.fmtUpdated()}`;
+            // Update state instead of calling render directly
+            appState.setState('location.ais', vessels);
+
         } catch (err) {
             console.error("AIS feil:", err);
-            this.elements.error().hidden = false;
-            this.elements.updated().textContent = "feil ved oppdatering";
+            appState.setState('location.ais', []);
+
+            // Add error to global error state
+            const errors = appState.getState('ui.errors') || [];
+            errors.push({
+                type: 'ais',
+                message: err.message,
+                timestamp: Date.now()
+            });
+            appState.setState('ui.errors', errors);
         }
     }
 }
