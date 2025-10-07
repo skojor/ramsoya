@@ -1,7 +1,8 @@
 // Tidal data management
 import { CONFIG } from './constants.js';
 import { appState } from './state-manager.js';
-import { reportError } from './error-handler.js';
+import { apiClient } from './api-client.js';
+import { UIComponents } from './ui-components.js';
 
 export class TidalManager {
     constructor() {
@@ -23,8 +24,25 @@ export class TidalManager {
         appState.subscribe('location.tidal', (tidalData) => {
             if (tidalData) {
                 this.renderTidalData(tidalData);
+            } else {
+                UIComponents.updateContent(this.elements.tideNext1(), '—');
+                UIComponents.updateContent(this.elements.tideNext2(), '—');
             }
         });
+
+        // Handle loading state
+        appState.subscribe('ui.loading', (loadingStates) => {
+            if (loadingStates.tidal !== undefined) {
+                this.updateLoadingState(loadingStates.tidal);
+            }
+        });
+    }
+
+    updateLoadingState(isLoading) {
+        if (isLoading) {
+            UIComponents.updateContent(this.elements.tideNext1(), 'Laster...');
+            UIComponents.updateContent(this.elements.tideNext2(), 'Laster...');
+        }
     }
 
     init() {
@@ -64,62 +82,98 @@ export class TidalManager {
 
     renderTidalData(tidalData) {
         const [a, b] = tidalData;
-        const el1 = this.elements.tideNext1();
-        const el2 = this.elements.tideNext2();
 
         if (a) {
-            el1.textContent = `${this.norskType(a.type)}${a.type ? " " : ""}${this.fmtTid(a.time)} (${this.fmtM(a.cm)})`;
+            UIComponents.updateContent(this.elements.tideNext1(),
+                `${this.norskType(a.type)}${a.type ? " " : ""}${this.fmtTid(a.time)} (${this.fmtM(a.cm)})`);
         } else {
-            el1.textContent = '—';
+            UIComponents.updateContent(this.elements.tideNext1(), '—');
         }
 
         if (b) {
-            el2.textContent = `${this.norskType(b.type)}${b.type ? " " : ""}${this.fmtTid(b.time)} (${this.fmtM(b.cm)})`;
+            UIComponents.updateContent(this.elements.tideNext2(),
+                `${this.norskType(b.type)}${b.type ? " " : ""}${this.fmtTid(b.time)} (${this.fmtM(b.cm)})`);
         } else {
-            el2.textContent = '—';
+            UIComponents.updateContent(this.elements.tideNext2(), '—');
         }
+    }
+
+    buildTidalUrl() {
+        const now = new Date();
+        const to = new Date(now.getTime() + 72 * 60 * 60 * 1000);
+        const url = new URL(CONFIG.ENDPOINTS.TIDAL);
+        url.search = new URLSearchParams({
+            tide_request: 'locationdata',
+            lat: String(this.lat),
+            lon: String(this.lon),
+            datatype: 'tab',
+            refcode: 'cd',
+            lang: 'nb',
+            fromtime: this.isoLocal(now),
+            totime: this.isoLocal(to),
+            tzone: '1',
+            dst: '1'
+        }).toString();
+        return url.toString();
     }
 
     async hentToNeste() {
         try {
-            const now = new Date();
-            const to = new Date(now.getTime() + 72 * 60 * 60 * 1000);
-            const url = new URL(CONFIG.ENDPOINTS.TIDAL);
-            url.search = new URLSearchParams({
-                tide_request: 'locationdata',
-                lat: String(this.lat),
-                lon: String(this.lon),
-                datatype: 'tab',
-                refcode: 'cd',
-                lang: 'nb',
-                fromtime: this.isoLocal(now),
-                totime: this.isoLocal(to),
-                tzone: '1',
-                dst: '1'
-            }).toString();
+            const url = this.buildTidalUrl();
+            const responseText = await apiClient.fetch(url, { method: 'GET' }, 'tidal');
 
-            const res = await fetch(url, {cache: 'no-store'});
-
-            if (!res.ok) {
-                throw new Error(`HTTP ${res.status}: Failed to fetch tidal data`);
+            // Handle both null responses and text responses
+            let tidalEvents = [];
+            if (responseText === null) {
+                console.warn('Tidal API returned empty response');
+                tidalEvents = [];
+            } else if (typeof responseText === 'string' && responseText.trim().length > 0) {
+                // Parse tidal data from text response
+                tidalEvents = this.parseTidalResponse(responseText);
+            } else {
+                console.warn('Unexpected tidal response type:', typeof responseText);
+                tidalEvents = [];
             }
 
-            const xml = await res.text();
-            const doc = new DOMParser().parseFromString(xml, 'text/xml');
-            const items = Array.from(doc.querySelectorAll('waterlevel')).slice(0, 2).map(el => ({
-                type: el.getAttribute('type') ?? el.getAttribute('flag') ?? el.getAttribute('kind') ?? el.getAttribute('tide'),
-                time: new Date(el.getAttribute('time')),
-                cm: Number(el.getAttribute('value'))
-            }));
-
-            // Update state instead of direct rendering
-            appState.setState('location.tidal', items);
+            if (tidalEvents && tidalEvents.length > 0) {
+                appState.setState('location.tidal', tidalEvents.slice(0, 2));
+            } else {
+                console.warn('No tidal events found');
+                appState.setState('location.tidal', null);
+            }
 
         } catch (error) {
-            reportError('tidal', error, 'Failed to fetch tidal data from Kartverket');
+            console.error("Tidal fetch error:", error);
             appState.setState('location.tidal', null);
-            this.elements.tideNext1().textContent = 'Feil ved henting';
-            this.elements.tideNext2().textContent = '—';
         }
+    }
+
+    parseTidalResponse(responseText) {
+        if (typeof responseText !== 'string') return [];
+
+        const lines = responseText.split('\n').filter(line => line.trim().length > 0);
+        const events = [];
+
+        for (const line of lines) {
+            const parts = line.split('\t');
+            if (parts.length >= 3) {
+                try {
+                    const timeStr = parts[0];
+                    const type = parts[1];
+                    const cmStr = parts[2];
+
+                    const time = new Date(timeStr);
+                    const cm = parseFloat(cmStr);
+
+                    if (!isNaN(time.getTime()) && !isNaN(cm)) {
+                        events.push({ time, type, cm });
+                    }
+                } catch (e) {
+                    console.warn('Failed to parse tidal line:', line, e);
+                }
+            }
+        }
+
+        return events.sort((a, b) => a.time - b.time);
     }
 }

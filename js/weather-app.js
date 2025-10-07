@@ -8,50 +8,38 @@ import { SolarManager } from './solar-manager.js';
 
 export class WeatherApp {
     constructor() {
+        // Managers now initialize themselves and handle their own fetch cycles
         this.imageManager = new ImageManager();
         this.weatherManager = new WeatherManager();
         this.moonManager = new MoonManager();
         this.forecastManager = new ForecastManager();
         this.solarManager = new SolarManager();
-        this.timers = [];
     }
 
     init() {
-        // Initial loads
-        this.imageManager.refreshImage();
+        // Managers now handle their own initialization, but we can trigger initial loads
+        this.triggerInitialLoads();
+        this.setupEventListeners();
+    }
+
+    triggerInitialLoads() {
+        // Manually trigger initial data fetches
+        this.imageManager.fetchImage();
         this.weatherManager.fetchWeather();
         this.moonManager.fetchMoon();
         this.forecastManager.loadForecastHourly();
         this.solarManager.loadSunriseSunset();
-        this.imageManager.updateStatus();
-
-        // Set up timers
-        this.setupTimers();
-        this.setupEventListeners();
-    }
-
-    setupTimers() {
-        this.timers.push(
-            setInterval(() => this.imageManager.refreshImage(), CONFIG.INTERVALS.IMAGE_REFRESH),
-            setInterval(() => this.weatherManager.fetchWeather(), CONFIG.INTERVALS.WEATHER_REFRESH),
-            setInterval(() => this.imageManager.updateStatus(), CONFIG.INTERVALS.IMAGE_STATUS),
-            setInterval(() => this.moonManager.fetchMoon(), CONFIG.INTERVALS.MOON_REFRESH),
-            setInterval(() => this.forecastManager.loadForecastHourly(), CONFIG.INTERVALS.FORECAST_REFRESH),
-            setInterval(() => this.solarManager.loadSunriseSunset(), CONFIG.INTERVALS.SOLAR_REFRESH)
-        );
     }
 
     setupEventListeners() {
+        // Refresh data when window regains focus
         window.addEventListener("focus", () => {
-            this.imageManager.refreshImage();
-            this.weatherManager.fetchWeather();
-            this.moonManager.fetchMoon();
-            this.forecastManager.loadForecastHourly();
-            this.solarManager.loadSunriseSunset();
+            this.triggerInitialLoads();
         });
 
+        // Cleanup if needed (managers handle their own intervals now)
         window.addEventListener("beforeunload", () => {
-            this.timers.forEach(timer => clearInterval(timer));
+            // Managers handle their own cleanup
         });
     }
 }

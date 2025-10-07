@@ -1,7 +1,8 @@
 // Moon phase management
 import { CONFIG } from './constants.js';
 import { appState } from './state-manager.js';
-import { reportError } from './error-handler.js';
+import { apiClient } from './api-client.js';
+import { UIComponents } from './ui-components.js';
 
 export class MoonManager {
     constructor() {
@@ -19,15 +20,28 @@ export class MoonManager {
                 this.renderMoonData(moonData);
             }
         });
+
+        // Handle loading state
+        appState.subscribe('ui.loading', (loadingStates) => {
+            if (loadingStates.moon !== undefined) {
+                this.updateLoadingState(loadingStates.moon);
+            }
+        });
+    }
+
+    updateLoadingState(isLoading) {
+        if (isLoading) {
+            UIComponents.updateContent(this.moonText, 'Laster månefase...');
+        }
     }
 
     renderMoonData(data) {
         if (data.processed) {
             this.moonSvg.innerHTML = data.processed.svg;
             this.moonSvg.setAttribute("viewBox", "0 0 120 120");
-            this.moonText.textContent = data.processed.text;
+            UIComponents.updateContent(this.moonText, data.processed.text);
         } else {
-            this.moonText.textContent = "Kunne ikke behandle månedata";
+            UIComponents.updateContent(this.moonText, "Kunne ikke behandle månedata");
             this.showFallbackMoon();
         }
     }
@@ -39,20 +53,19 @@ export class MoonManager {
 
     async fetchMoon() {
         try {
-            const res = await fetch(CONFIG.MOON_URL, { cache: "no-cache" });
-            const data = await res.json();
+            const data = await apiClient.get(CONFIG.MOON_URL, 'moon');
 
-            if (data.processed) {
+            if (data && data.processed) {
                 // Update state instead of direct rendering
                 appState.setState('astronomy.moon', data);
             } else {
-                reportError('moon', 'Unexpected moon data format', 'Missing processed data');
+                console.warn('Unexpected moon data format - missing processed data');
                 appState.setState('astronomy.moon', { processed: null });
             }
         } catch (error) {
-            reportError('moon', error, 'Failed to fetch moon phase data');
+            console.error("Moon fetch error:", error);
             appState.setState('astronomy.moon', null);
-            this.moonText.textContent = "Kunne ikke hente månefasen nå.";
+            UIComponents.updateContent(this.moonText, "Kunne ikke hente månefasen nå.");
             this.showFallbackMoon();
         }
     }

@@ -165,17 +165,11 @@
         </div>
     </div>
 
-    <!-- Load remaining non-module scripts -->
-    <script src="js/ais-manager.js"></script>
-    <script src="js/adsb-manager.js"></script>
-    <script src="js/tidal-manager.js"></script>
-    <script src="js/entur-manager.js"></script>
+    <!-- Load Chart.js libraries (non-module dependencies) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
-    <script src="js/chart-manager.js"></script>
-    <script src="js/ui-manager.js"></script>
 
-    <!-- Main ES6 module entry point -->
+    <!-- Main ES6 module entry point - imports all managers -->
     <script type="module" src="js/main.js"></script>
 
     <div id="ais-tooltip" hidden></div>

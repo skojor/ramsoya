@@ -1,25 +1,25 @@
-// ADS-B aircraft tracking management
+// ADSB aircraft tracking management
 import { CONFIG } from './constants.js';
 import { ensureTooltip, positionTooltip } from './tooltip-helpers.js';
 import { appState } from './state-manager.js';
-import { reportError } from './error-handler.js';
+import { apiClient } from './api-client.js';
+import { UIComponents } from './ui-components.js';
 
 export class ADSBManager {
     constructor() {
-        this.origin = {lat: CONFIG.LOCATION.LAT, lon: CONFIG.LOCATION.LON};
-        this.maxDistKm = CONFIG.ADSB.MAX_DIST_KM;
-        this.maxSeenS = CONFIG.ADSB.MAX_SEEN_S;
+        this.endpoint = CONFIG.ENDPOINTS.ADSB;
         this.refreshMs = CONFIG.INTERVALS.ADSB_REFRESH;
+        this.iconPlane = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.56 3.44C21.15 4.03 21.15 4.97 20.56 5.56L5.56 20.56C4.97 21.15 4.03 21.15 3.44 20.56C2.85 19.97 2.85 19.03 3.44 18.44L18.44 3.44C19.03 2.85 19.97 2.85 20.56 3.44M8.5 7.5L12 11L13 10L9.5 6.5L8.5 7.5M16.5 15.5L17.5 16.5L14 20L13 19L16.5 15.5Z"/></svg>`;
 
-        this.iconSearch = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4z"/></svg>`;
-
+        // DOM element getters
         this.elements = {
-            tbody: () => document.querySelector('#adsb-table tbody'),
-            wrap: () => document.getElementById('adsb-table-wrap'),
-            empty: () => document.getElementById('adsb-empty'),
-            error: () => document.getElementById('adsb-error'),
-            count: () => document.getElementById('adsb-count'),
-            updated: () => document.getElementById('adsb-updated')
+            tbody: () => document.querySelector("#adsb-table tbody"),
+            count: () => document.getElementById("adsb-count"),
+            updated: () => document.getElementById("adsb-updated"),
+            empty: () => document.getElementById("adsb-empty"),
+            error: () => document.getElementById("adsb-error"),
+            wrap: () => document.getElementById("adsb-table-wrap"),
+            table: () => document.getElementById("adsb-table")
         };
 
         this.setupStateSubscriptions();
@@ -27,223 +27,176 @@ export class ADSBManager {
     }
 
     setupStateSubscriptions() {
-        // Re-render when ADS-B data changes
+        // Re-render when ADSB data changes
         appState.subscribe('location.adsb', (aircraft) => {
             this.renderAircraft(aircraft);
         });
+
+        // Handle loading state
+        appState.subscribe('ui.loading', (loadingStates) => {
+            if (loadingStates.adsb !== undefined) {
+                this.updateLoadingState(loadingStates.adsb);
+            }
+        });
+    }
+
+    updateLoadingState(isLoading) {
+        if (isLoading) {
+            UIComponents.updateContent(this.elements.updated(), 'oppdaterer...');
+        }
     }
 
     init() {
-        this.tick();
-        setInterval(() => this.tick(), this.refreshMs);
-    }
-
-    fmt(val, suffix = '') {
-        return (val == null || Number.isNaN(Number(val))) ? '–' : `${val}${suffix}`;
-    }
-
-    fmtFt(val) {
-        return (val == null || isNaN(val)) ? '–' : `${Math.round(val)} ft`;
-    }
-
-    fmtFpm(val) {
-        return (val == null || isNaN(val)) ? '–' : `${Math.round(val)} ft/min`;
-    }
-
-    fmtKt(val) {
-        return (val == null || isNaN(val)) ? '–' : `${Math.round(val)} kt`;
-    }
-
-    fmtDeg(val) {
-        return (val == null || isNaN(val)) ? '–' : `${Math.round(((val % 360) + 360) % 360)}°`;
-    }
-
-    fmtGs(kt) {
-        return kt == null ? '—' : Math.round(kt) + ' kt';
-    }
-
-    fmtNm(nm) {
-        return nm < 1 ? (nm * 1000 / 1.852 | 0) + ' m' : nm.toFixed(1) + ' nm';
-    }
-
-    fmtSeen(s) {
-        return s == null ? '—' : s.toFixed(1) + ' s';
-    }
-
-    fmtAlt(ft) {
-        if (ft == null) return '—';
-        if (typeof ft === 'string') return ft;
-        return Math.round(ft).toLocaleString('no-NO') + ' ft';
+        this.loadAdsb();
+        setInterval(() => this.loadAdsb(), this.refreshMs);
     }
 
     fmtUpdated(date = new Date()) {
-        const pad = n => String(n).padStart(2, '0');
+        const pad = n => String(n).padStart(2, "0");
         return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
     }
 
-    makeAdsbTooltip(a) {
-        const lines = [];
-        const flight = (a.flight || '').trim() || a.hex || '–';
-        const reg = a.r || a.reg || '–';
-        const type = a.t || a.type || '–';
-        const squawk = a.squawk || '–';
-        const alt = this.fmtFt(a.alt_baro);
-        const vr = this.fmtFpm(a.baro_rate ?? a.vert_rate);
-        const gs = this.fmtKt(a.gs);
-        const trk = this.fmtDeg(a.track);
-        const dist = (a.distance_nm != null) ? (a.distance_nm < 1 ? `${(a.distance_nm * 1000 / 1.852 | 0)} m` : `${a.distance_nm.toFixed(1)} nm`) : '–';
-        const seen = (a.seen != null) ? `${a.seen.toFixed(1)} s` : '–';
-        const airline = a.airline || '–';
+    makeTooltipText(a) {
+        const alt = (typeof a.alt_ft === "number") ? `${a.alt_ft} ft` : "–";
+        const spd = (typeof a.spd_kn === "number") ? `${a.spd_kn.toFixed(1)} kn` : "–";
+        const track = (a.track_deg != null) ? `${a.track_deg}°` : "–";
+        const nm = (typeof a.dist_nm === "number") ? `${a.dist_nm.toFixed(1)} nm` : "–";
+        const vs = (typeof a.vs_fpm === "number") ? `${a.vs_fpm > 0 ? '+' : ''}${a.vs_fpm} fpm` : "–";
 
-        lines.push(`Flight: ${flight}`);
-        lines.push(`Flyselskap: ${airline}`);
-        lines.push(`ICAO: ${a.hex || '–'}`);
-        lines.push(`Reg: ${reg}`);
-        lines.push(`Type: ${type}`);
-        lines.push(`Squawk: ${squawk}`);
-        lines.push(`Høyde: ${alt}`);
-        lines.push(`Stige/synk: ${vr}`);
-        lines.push(`Fart: ${gs}`);
-        lines.push(`Retning: ${trk}`);
-        lines.push(`Avstand: ${dist}`);
-        lines.push(`Sist sett: ${seen}`);
-        lines.push('\nSøk: åpne i Google (Ctrl/⌘-klikk)');
-        return lines.join('\n');
+        return `Kallesignal: ${a.callsign || "–"}\nFlytype: ${a.aircraft_type || "–"}\nHøyde: ${alt}\nFart: ${spd}\nKurs: ${track}\nStiging: ${vs}\nAvstand: ${nm}\nSist sett: ${a.tid || "–"}`;
     }
 
-    fr24FlightUrl(flight) {
-        return CONFIG.EXTERNAL.FLIGHTRADAR24;
-    }
-
-    googleFlightUrl(flight) {
-        return `${CONFIG.EXTERNAL.GOOGLE_FLIGHT_SEARCH}${encodeURIComponent(flight + ' flight')}`;
-    }
-
-    async fetchAircraft() {
-        const url = `${CONFIG.ENDPOINTS.ADSB}?lat=${this.origin.lat}&lon=${this.origin.lon}&radius=${this.maxDistKm}&max_age=${this.maxSeenS}`;
-        const res = await fetch(url, {cache: 'no-store'});
-        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to fetch aircraft data`);
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error || 'Server error in aircraft data');
-        return data;
+    flightAwareUrl(callsign) {
+        if (!callsign) return null;
+        return `${CONFIG.EXTERNAL.FLIGHT_AWARE}${encodeURIComponent(callsign)}`;
     }
 
     renderAircraft(aircraft) {
         const hasRows = aircraft.length > 0;
-        this.elements.wrap().hidden = !hasRows;
-        this.elements.empty().hidden = hasRows;
-        this.elements.count().textContent = aircraft.length;
-        this.elements.updated().textContent = `oppdatert ${this.fmtUpdated()}`;
+        UIComponents.toggleElement(this.elements.wrap(), hasRows);
+        UIComponents.toggleElement(this.elements.empty(), !hasRows);
+        UIComponents.updateContent(this.elements.count(), aircraft.length);
+        UIComponents.updateContent(this.elements.updated(), `oppdatert ${this.fmtUpdated()}`);
 
-        this.render(aircraft);
-    }
-
-    makeHeadingCell(track) {
-        const td = document.createElement('td');
-        const n = Number(track);
-        if (Number.isFinite(n)) {
-            let hdg = ((n % 360) + 360) % 360;
-            hdg = Math.round(hdg);
-            const rot = ((hdg - 90) % 360 + 360) % 360;
-            td.innerHTML = `<span class="cog-wrap"><svg class="cog-arrow" viewBox="0 0 48 48" aria-label="Retning ${hdg}°"><g class="outline"><line x1="8" y1="24" x2="32" y2="24"></line></g><line class="shaft" x1="8" y1="24" x2="32" y2="24"></line><polygon class="head" points="32,16 44,24 32,32 34,24"></polygon></svg><span class="cog-text">${hdg}°</span></span>`;
-            td.querySelector('.cog-arrow').style.transform = `rotate(${rot}deg)`;
-        } else {
-            td.textContent = '—';
+        if (hasRows) {
+            this.renderTable(aircraft);
         }
-        return td;
     }
 
-    render(rows) {
+    renderTable(aircraft) {
+        // Convert aircraft data to table format
+        const tableData = aircraft.map(a => {
+            const actions = a.callsign ?
+                `<a class="iconbtn" href="${this.flightAwareUrl(a.callsign)}" target="_blank" rel="noopener" title="Åpne i FlightAware" onclick="event.stopPropagation()">${this.iconPlane}</a>` : '';
+
+            return {
+                callsign: a.callsign || "–",
+                aircraft_type: a.aircraft_type || "–",
+                altitude: (typeof a.alt_ft === "number") ? `${a.alt_ft}` : "–",
+                speed: (typeof a.spd_kn === "number") ? a.spd_kn.toFixed(1) : "–",
+                track: (a.track_deg != null) ? `${a.track_deg}°` : "–",
+                distance: (typeof a.dist_nm === "number") ? a.dist_nm.toFixed(1) : "–",
+                actions: actions,
+                _aircraft: a // Keep reference for tooltip
+            };
+        });
+
+        const headers = ['Kallesignal', 'Flytype', 'Høyde', 'Fart', 'Kurs', 'Avstand', ''];
+
+        // Create table using UIComponents
+        const tableEl = UIComponents.createTable({
+            headers,
+            rows: tableData.map(row => [
+                row.callsign,
+                row.aircraft_type,
+                row.altitude,
+                row.speed,
+                row.track,
+                row.distance,
+                row.actions
+            ]),
+            onRowClick: (rowData, index) => {
+                const aircraft = tableData[index];
+                if (aircraft.callsign && aircraft._aircraft.callsign) {
+                    window.open(this.flightAwareUrl(aircraft._aircraft.callsign), "_blank", "noopener");
+                }
+            }
+        });
+
+        // Add tooltip functionality
+        this.addTooltipHandlers(tableEl, tableData);
+
+        // Replace table content
         const tbody = this.elements.tbody();
+        const table = tbody.closest('table');
+        if (table && tableEl.querySelector('table')) {
+            table.querySelector('tbody').innerHTML = tableEl.querySelector('tbody').innerHTML;
+        }
+    }
+
+    addTooltipHandlers(tableEl, aircraftData) {
         const tooltip = ensureTooltip();
-        tbody.innerHTML = '';
+        const rows = tableEl.querySelectorAll('tbody tr');
 
-        rows.forEach(a => {
-            const tr = document.createElement('tr');
+        rows.forEach((row, index) => {
+            const aircraft = aircraftData[index]._aircraft;
 
-            tr.addEventListener('mouseenter', e => {
-                tooltip.textContent = this.makeAdsbTooltip(a);
+            row.addEventListener("mouseenter", e => {
+                tooltip.textContent = this.makeTooltipText(aircraft);
                 tooltip.style.display = 'block';
                 tooltip.style.visibility = 'visible';
                 positionTooltip(e, tooltip);
             });
 
-            tr.addEventListener('mousemove', e => {
+            row.addEventListener("mousemove", e => {
                 positionTooltip(e, tooltip);
             });
 
-            tr.addEventListener('mouseleave', () => {
+            row.addEventListener("mouseleave", () => {
                 tooltip.style.visibility = '';
                 tooltip.style.display = 'none';
             });
-
-            const flight = (a.flight || '').trim() || (a.t || a.hex || '—');
-
-            const tdF = document.createElement('td');
-            tdF.textContent = flight;
-            tr.appendChild(tdF);
-
-            const airline = a.airline || '—';
-            const tdAir = document.createElement('td');
-            tdAir.textContent = airline;
-            tr.appendChild(tdAir);
-
-            const tdAlt = document.createElement('td');
-            tdAlt.textContent = this.fmtAlt(a.alt_baro);
-            tr.appendChild(tdAlt);
-
-            const tdSpd = document.createElement('td');
-            tdSpd.textContent = this.fmtGs(a.gs);
-            tr.appendChild(tdSpd);
-
-            tr.appendChild(this.makeHeadingCell(a.track));
-
-            const tdDist = document.createElement('td');
-            tdDist.textContent = a.distance_nm != null ? this.fmtNm(a.distance_nm) : '—';
-            tr.appendChild(tdDist);
-
-            const tdSeen = document.createElement('td');
-            tdSeen.textContent = this.fmtSeen(a.seen);
-            tr.appendChild(tdSeen);
-
-            const tdAct = document.createElement('td');
-            tdAct.className = 'row-actions';
-            const btn = document.createElement('a');
-            btn.className = 'iconbtn';
-            btn.href = this.fr24FlightUrl(flight);
-            btn.target = '_blank';
-            btn.rel = 'noopener';
-            btn.title = 'Åpne i Flightradar24';
-            btn.innerHTML = this.iconSearch;
-            btn.addEventListener('click', ev => ev.stopPropagation());
-            tdAct.appendChild(btn);
-            tr.appendChild(tdAct);
-
-            // Ctrl/Meta-klikk på raden åpner Google-søk for flighten i ny fane
-            tr.addEventListener('click', (ev) => {
-                if (ev.ctrlKey || ev.metaKey) {
-                    const url = this.googleFlightUrl(flight);
-                    window.open(url, '_blank', 'noopener');
-                }
-            });
-            tbody.appendChild(tr);
         });
+
+        // Global cleanup handlers
+        this.elements.table().addEventListener("mouseleave", () => {
+            tooltip.hidden = true;
+        }, {once: true});
+
+        window.addEventListener("scroll", () => {
+            tooltip.hidden = true;
+        }, {passive: true});
     }
 
-    async tick() {
+    async loadAdsb() {
         try {
-            this.elements.error().hidden = true;
-            const data = await this.fetchAircraft();
-            const list = data.aircraft || [];
+            UIComponents.toggleElement(this.elements.error(), false);
 
-            // Update state instead of direct rendering
-            appState.setState('location.adsb', list);
+            const data = await apiClient.get(this.endpoint, 'adsb');
+
+            // Handle both null responses and proper data structure
+            let aircraft = [];
+            if (data === null) {
+                console.warn('ADSB API returned empty response');
+                aircraft = [];
+            } else if (Array.isArray(data?.aircraft)) {
+                aircraft = data.aircraft;
+            } else if (Array.isArray(data)) {
+                // Handle case where API returns array directly
+                aircraft = data;
+            } else {
+                console.warn('Unexpected ADSB data structure:', data);
+                aircraft = [];
+            }
+
+            // Update state instead of calling render directly
+            appState.setState('location.adsb', aircraft);
 
         } catch (error) {
-            reportError('adsb', error, 'Failed to fetch ADS-B aircraft data');
+            console.error("ADSB fetch error:", error);
             appState.setState('location.adsb', []);
-            this.elements.error().hidden = false;
-            this.elements.updated().textContent = "feil ved oppdatering";
+            UIComponents.toggleElement(this.elements.error(), true);
+            UIComponents.updateContent(this.elements.updated(), "feil ved oppdatering");
         }
     }
 }

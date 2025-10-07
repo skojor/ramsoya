@@ -1,7 +1,8 @@
 // Weather statistics chart management
 import { CONFIG } from './constants.js';
 import { appState } from './state-manager.js';
-import { reportError } from './error-handler.js';
+import { apiClient } from './api-client.js';
+import { UIComponents } from './ui-components.js';
 
 export class ChartManager {
     constructor() {
@@ -29,6 +30,19 @@ export class ChartManager {
                 this.updateCharts(chartData);
             }
         });
+
+        // Handle loading state
+        appState.subscribe('ui.loading', (loadingStates) => {
+            if (loadingStates.charts !== undefined) {
+                this.updateLoadingState(loadingStates.charts);
+            }
+        });
+    }
+
+    updateLoadingState(isLoading) {
+        if (isLoading) {
+            UIComponents.updateContent(this.elements.updated(), 'Laster diagram...');
+        }
     }
 
     init() {
@@ -82,14 +96,23 @@ export class ChartManager {
             const interval = this.intervalFor(range);
             const url = this.buildURL(range, interval);
             const t0 = performance.now();
-            const res = await fetch(url, {cache: 'no-store'});
 
-            if (!res.ok) {
-                throw new Error(`HTTP ${res.status}: Failed to fetch chart data`);
+            const responseData = await apiClient.get(url, 'charts');
+
+            // Handle both null responses and proper data structure
+            let rows = [];
+            if (responseData === null) {
+                console.warn('Charts API returned empty response');
+                rows = [];
+            } else if (responseData && Array.isArray(responseData.rows)) {
+                rows = responseData.rows;
+            } else if (responseData && typeof responseData === 'object') {
+                console.warn('Unexpected chart data structure:', responseData);
+                rows = [];
+            } else {
+                console.warn('Invalid chart response type:', typeof responseData);
+                rows = [];
             }
-
-            const responseData = await res.json();
-            const {rows = []} = responseData;
 
             let tempBrygga = this.downsample(this.makeXY(rows, 'temp_brygga'));
             let tempLia = this.downsample(this.makeXY(rows, 'temp_lia'));
@@ -100,7 +123,8 @@ export class ChartManager {
             let gustLia = this.downsample(this.makeXY(rows, 'gust_lia'));
 
             const ms = Math.round(performance.now() - t0);
-            this.elements.updated().textContent = `Oppdatert ${new Date().toLocaleTimeString('nb-NO')} • ${range} @ ${interval} • ${ms} ms`;
+            UIComponents.updateContent(this.elements.updated(),
+                `Oppdatert ${new Date().toLocaleTimeString('nb-NO')} • ${range} @ ${interval} • ${ms} ms`);
 
             const chartData = {tempBrygga, tempLia, wtempSjo, windBrygga, gustBrygga, windLia, gustLia};
 
@@ -109,8 +133,8 @@ export class ChartManager {
 
             return chartData;
         } catch (error) {
-            reportError('charts', error, `Failed to fetch chart data for range: ${range}`);
-            this.elements.updated().textContent = 'Feil ved henting av data';
+            console.error("Chart fetch error:", error);
+            UIComponents.updateContent(this.elements.updated(), 'Feil ved henting av data');
             throw error;
         }
     }

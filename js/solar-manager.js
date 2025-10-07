@@ -1,7 +1,8 @@
 // Solar events management
 import { CONFIG } from './constants.js';
 import { appState } from './state-manager.js';
-import { reportError } from './error-handler.js';
+import { apiClient } from './api-client.js';
+import { UIComponents } from './ui-components.js';
 
 export class SolarManager {
     constructor() {
@@ -16,8 +17,23 @@ export class SolarManager {
         appState.subscribe('astronomy.solar', (solarData) => {
             if (solarData) {
                 this.renderSolarEvents(solarData);
+            } else {
+                UIComponents.updateContent(this.nextSunEventEl, '<div class="sun-error">Ingen soldata tilgjengelig</div>');
             }
         });
+
+        // Handle loading state
+        appState.subscribe('ui.loading', (loadingStates) => {
+            if (loadingStates.solar !== undefined) {
+                this.updateLoadingState(loadingStates.solar);
+            }
+        });
+    }
+
+    updateLoadingState(isLoading) {
+        if (isLoading) {
+            UIComponents.updateContent(this.nextSunEventEl, '<div class="sun-loading">Laster soldata...</div>');
+        }
     }
 
     formatAllSolarEvents(data) {
@@ -62,21 +78,20 @@ export class SolarManager {
 
     async loadSunriseSunset() {
         try {
-            const res = await fetch(CONFIG.SUNRISE_URL, { cache: 'no-cache' });
+            const data = await apiClient.get(CONFIG.SUNRISE_URL, 'solar');
 
-            if (!res.ok) {
-                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            if (data) {
+                // Update state instead of direct rendering
+                appState.setState('astronomy.solar', data);
+            } else {
+                console.warn('No solar data received');
+                appState.setState('astronomy.solar', null);
             }
 
-            const data = await res.json();
-
-            // Update state instead of direct rendering
-            appState.setState('astronomy.solar', data);
-
         } catch (error) {
-            reportError('solar', error, 'Failed to fetch sunrise/sunset data');
+            console.error("Solar fetch error:", error);
             appState.setState('astronomy.solar', null);
-            this.nextSunEventEl.innerHTML = '<div class="sun-error">Kunne ikke hente soldata</div>';
+            UIComponents.updateContent(this.nextSunEventEl, '<div class="sun-error">Kunne ikke hente soldata</div>');
         }
     }
 }
