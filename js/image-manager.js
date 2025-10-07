@@ -71,7 +71,6 @@ export class ImageManager {
             this.imageEl.src = imageUrl;
             this.imageEl.onload = () => {
                 appState.setState('image.status', 'loaded');
-                this.lastImageTs = Date.now();
             };
             this.imageEl.onerror = () => {
                 appState.setState('image.status', 'error');

@@ -47,11 +47,11 @@ export class EnturManager {
 
     init() {
         // Initial load
-        this.loadData();
+        this.updateEntur();
 
         // Setup visibility-aware interval for transport updates
         visibilityManager.setInterval('entur',
-            () => this.loadData(),
+            () => this.updateEntur(),
             this.refreshMs,
             2 // 2x slower when hidden (1min -> 2min) - transport schedules change moderately
         );
