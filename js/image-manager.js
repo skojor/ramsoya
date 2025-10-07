@@ -24,9 +24,27 @@ class ImageManager {
 
     async updateImageCaptureTime() {
         try {
-            // Implementation here
+            const res = await fetch('/image_metadata_proxy.php', {
+                cache: 'no-cache',
+                headers: { 'Accept': 'application/json' }
+            });
+
+            if (!res.ok) {
+                console.warn('Image metadata fetch failed:', res.status);
+                return;
+            }
+
+            const data = await res.json();
+
+            if (data.success && data.lastModified) {
+                // Parse the Last-Modified header to get the capture timestamp
+                this.imageCaptureTs = new Date(data.lastModified).getTime();
+            } else {
+                console.warn('Invalid image metadata response:', data);
+            }
         } catch (e) {
-            // Error handling
+            console.error('Error fetching image metadata:', e);
+            // Don't update imageCaptureTs if we can't get the data
         }
     }
 

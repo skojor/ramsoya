@@ -1,7 +1,7 @@
 // Application constants and configuration
 const CONFIG = {
     WIND_ARROW_MODE: 'to',
-    IMG_URL: "siste.jpg",
+    IMG_URL: "/siste.jpg",
     WEATHER_URL: "getweather_overlay.php",
     IMAGE_INTERVAL_MS: 20_000,
     WEATHER_INTERVAL_MS: 30_000,
