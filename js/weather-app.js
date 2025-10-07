@@ -25,12 +25,7 @@ export class WeatherApp {
     }
 
     setupSmartIntervals() {
-        // Image updates - most frequent, reduce significantly when hidden
-        visibilityManager.setInterval('image',
-            () => this.imageManager.fetchImage(),
-            CONFIG.INTERVALS.IMAGE_REFRESH,
-            5 // 5x slower when hidden (20s -> 100s)
-        );
+        // Note: ImageManager now handles its own intervals, so we don't set them up here
 
         // Weather updates - frequent, moderate reduction when hidden
         visibilityManager.setInterval('weather',
@@ -63,7 +58,7 @@ export class WeatherApp {
 
     triggerInitialLoads() {
         // Manually trigger initial data fetches
-        this.imageManager.fetchImage();
+        this.imageManager.refreshImage();
         this.weatherManager.fetchWeather();
         this.moonManager.fetchMoon();
         this.forecastManager.loadForecastHourly();
