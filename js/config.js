@@ -1,0 +1,1 @@
+window.WIND_FLIP = true;
