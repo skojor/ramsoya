@@ -57,7 +57,8 @@ $airline_map = [
     'VLG' => 'Vueling',
     'LOT' => 'LOT Polish Airlines',
     'ITY' => 'ITA Airways',
-    'NOZ' => 'Norwegian'
+    'NOZ' => 'Norwegian',
+    'NSZ' => 'Norwegian'
 ];
 
 /**
