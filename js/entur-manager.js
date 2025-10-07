@@ -1,7 +1,8 @@
 // Entur public transport data management
 import { CONFIG } from './constants.js';
 import { appState } from './state-manager.js';
-import { reportError } from './error-handler.js';
+import { apiClient } from './api-client.js';
+import { UIComponents } from './ui-components.js';
 
 export class EnturManager {
     constructor() {
@@ -24,14 +25,89 @@ export class EnturManager {
         appState.subscribe('transport.entur', (enturData) => {
             if (enturData) {
                 this.renderBidirectionalDepartures(enturData);
+            } else {
+                UIComponents.updateContent(this.elements.dep(), 'Ingen avganger funnet');
             }
         });
+
+        // Handle loading state
+        appState.subscribe('ui.loading', (loadingStates) => {
+            if (loadingStates.entur !== undefined) {
+                this.updateLoadingState(loadingStates.entur);
+            }
+        });
+    }
+
+    updateLoadingState(isLoading) {
+        if (isLoading) {
+            UIComponents.updateContent(this.elements.dep(), 'Laster ruteinfo...');
+        }
     }
 
     init() {
         console.log('Initializing Entur integration...');
         this.updateEntur();
         setInterval(() => this.updateEntur(), this.refreshMs);
+    }
+
+    async updateEntur() {
+        try {
+            console.log('Entur: Fetching from', this.apiUrl);
+            const data = await apiClient.get(this.apiUrl, 'entur');
+            console.log('Entur: Raw response received:', data);
+
+            // Handle both null responses and proper data structure
+            let enturData = null;
+            if (data === null) {
+                console.warn('Entur API returned empty response');
+                enturData = null;
+            } else if (data && typeof data === 'object') {
+                console.log('Entur: Checking data structure, keys:', Object.keys(data));
+
+                // Handle wrapped response format {success: true, data: {...}}
+                if (data.success && data.data) {
+                    console.log('Entur: Found wrapped response format');
+                    enturData = data.data; // Extract the actual data
+                    enturData.updated = data.updated; // Preserve the updated timestamp
+                }
+                // Handle direct format with expected properties
+                else if (data.bidirectionalDepartures || data.stopRamsoyUrl || data.stopSandviksUrl) {
+                    console.log('Entur: Found direct response format');
+                    enturData = data;
+                }
+                // Handle other possible formats
+                else if (data.departures || data.error) {
+                    console.log('Entur: Found alternative response format');
+                    enturData = data;
+                } else {
+                    console.warn('Entur: Unexpected data structure. Keys:', Object.keys(data), 'Data:', data);
+                    enturData = null;
+                }
+            } else {
+                console.warn('Entur: Unexpected response type:', typeof data, data);
+                enturData = null;
+            }
+
+            if (enturData) {
+                console.log('Entur: Setting state with valid data:', enturData);
+                appState.setState('transport.entur', enturData);
+                UIComponents.updateContent(this.elements.updated(), `oppdatert ${this.fmtUpdated()}`);
+            } else {
+                console.warn('Entur: No valid data received, setting null state');
+                appState.setState('transport.entur', null);
+                UIComponents.updateContent(this.elements.updated(), 'ingen data');
+            }
+
+        } catch (error) {
+            console.error("Entur fetch error:", error);
+            appState.setState('transport.entur', null);
+            UIComponents.updateContent(this.elements.updated(), 'feil ved oppdatering');
+        }
+    }
+
+    fmtUpdated(date = new Date()) {
+        const pad = n => String(n).padStart(2, "0");
+        return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
     }
 
     formatTime(isoString) {
@@ -120,36 +196,5 @@ export class EnturManager {
         console.log('Generated HTML:', html);
         this.elements.dep().innerHTML = html;
         this.elements.updated().textContent = `oppdatert ${updated}`;
-    }
-
-    async updateEntur() {
-        try {
-            console.log('Starting Entur update...');
-            this.elements.updated().textContent = "oppdaterer…";
-
-            const url = `${this.apiUrl}?bidirectional=true&_=${Date.now()}`;
-            console.log('Fetching Entur data from:', url);
-
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const result = await response.json();
-            console.log('Entur API response:', result);
-
-            if (result.success) {
-                // Update state instead of direct rendering
-                appState.setState('transport.entur', result.data);
-                console.log('Entur update successful');
-            } else {
-                throw new Error(result.error || 'Ukjent feil fra API');
-            }
-        } catch (error) {
-            reportError('entur', error, 'Failed to fetch public transport departures');
-            appState.setState('transport.entur', null);
-            this.elements.dep().innerHTML = '<div style="color: #ffb3b3;">Kunne ikke hente avganger: ' + error.message + '</div>';
-            this.elements.updated().textContent = "feil ved oppdatering";
-        }
     }
 }

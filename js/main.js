@@ -11,6 +11,7 @@ import { UIManager } from './ui-manager.js';
 import { CONFIG } from './constants.js';
 import { appState } from './state-manager.js';
 import { ErrorHandler, ActivityTracker } from './error-handler.js';
+import { injectComponentStyles } from './ui-components.js';
 
 // Legacy global configuration for backward compatibility
 window.WIND_FLIP = CONFIG.WIND_FLIP;
@@ -18,6 +19,9 @@ window.WIND_FLIP = CONFIG.WIND_FLIP;
 // Initialize all manager classes when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Initializing Ramsøyvika Weather Station...');
+
+    // Initialize UI components system
+    injectComponentStyles();
 
     // Initialize state management system
     const errorHandler = new ErrorHandler();
@@ -51,10 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // Set up data flow coordination
-    setupDataFlowCoordination();
-
-    console.log('✅ All managers initialized with reactive state management');
+    console.log('✅ All systems initialized successfully');
 });
 
 /**

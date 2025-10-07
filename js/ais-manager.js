@@ -2,7 +2,8 @@
 import { CONFIG } from './constants.js';
 import { ensureTooltip, positionTooltip } from './tooltip-helpers.js';
 import { appState } from './state-manager.js';
-import { reportError } from './error-handler.js';
+import { apiClient } from './api-client.js';
+import { UIComponents } from './ui-components.js';
 
 export class AISManager {
     constructor() {
@@ -31,14 +32,18 @@ export class AISManager {
             this.renderVessels(vessels);
         });
 
-        // Update UI when there are errors
-        appState.subscribe('ui.errors', (errors) => {
-            const aisErrors = errors.filter(e => e.type === 'ais');
-            if (aisErrors.length > 0) {
-                this.elements.error().hidden = false;
-                this.elements.updated().textContent = "feil ved oppdatering";
+        // Handle loading state
+        appState.subscribe('ui.loading', (loadingStates) => {
+            if (loadingStates.ais !== undefined) {
+                this.updateLoadingState(loadingStates.ais);
             }
         });
+    }
+
+    updateLoadingState(isLoading) {
+        if (isLoading) {
+            UIComponents.updateContent(this.elements.updated(), 'oppdaterer...');
+        }
     }
 
     init() {
@@ -67,96 +72,99 @@ export class AISManager {
 
     renderVessels(vessels) {
         const hasRows = vessels.length > 0;
-        this.elements.wrap().hidden = !hasRows;
-        this.elements.empty().hidden = hasRows;
-        this.elements.count().textContent = vessels.length;
-        this.elements.updated().textContent = `oppdatert ${this.fmtUpdated()}`;
+        UIComponents.toggleElement(this.elements.wrap(), hasRows);
+        UIComponents.toggleElement(this.elements.empty(), !hasRows);
+        UIComponents.updateContent(this.elements.count(), vessels.length);
+        UIComponents.updateContent(this.elements.updated(), `oppdatert ${this.fmtUpdated()}`);
 
-        // Existing render logic
-        this.renderRows(vessels);
+        if (hasRows) {
+            this.renderTable(vessels);
+        }
     }
 
-    renderRows(vessels) {
-        const tbody = this.elements.tbody();
-        const tooltip = ensureTooltip();
-        tbody.innerHTML = "";
+    renderTable(vessels) {
+        // Convert vessel data to table format
+        const tableData = vessels.map(v => {
+            const rawCog = (v.cog ?? v.cog_deg);
+            const numCog = Number(rawCog);
+            let cogDisplay = "–";
 
-        vessels.forEach(v => {
-            const tr = document.createElement("tr");
+            if (Number.isFinite(numCog)) {
+                let cog = ((numCog % 360) + 360) % 360;
+                cog = Math.round(cog);
+                const rot = ((cog - 90) % 360 + 360) % 360;
+                cogDisplay = `<span class="cog-wrap"><svg class="cog-arrow" viewBox="0 0 48 48" aria-label="Kurs ${cog}°" style="transform: rotate(${rot}deg);"><g class="outline"><line x1="8" y1="24" x2="32" y2="24"></line></g><line class="shaft" x1="8" y1="24" x2="32" y2="24"></line><polygon class="head" points="32,16 44,24 32,32 34,24"></polygon></svg><span class="cog-text">${cog}°</span></span>`;
+            }
 
-            // Event listeners
-            tr.addEventListener("click", () => {
+            const actions = v.mmsi ? `<a class="iconbtn" href="${this.marineTrafficUrl(v.mmsi)}" target="_blank" rel="noopener" title="Åpne i MarineTraffic" onclick="event.stopPropagation()">${this.iconShip}</a>` : '';
+
+            return {
+                name: (v.name && String(v.name).trim()) || "–",
+                speed: (typeof v.spd_kn === "number") ? v.spd_kn.toFixed(1) : "–",
+                course: cogDisplay,
+                callsign: (v.callsign && String(v.callsign).trim()) || "–",
+                destination: (v.dest && String(v.dest).trim()) || "–",
+                distance: (typeof v.dist_nm === "number") ? v.dist_nm.toFixed(1) : "–",
+                actions: actions,
+                _vessel: v // Keep reference for tooltip and click handling
+            };
+        });
+
+        const headers = ['Navn', 'Fart', 'Kurs', 'Kallesignal', 'Destinasjon', 'Avstand', ''];
+
+        // Create table using UIComponents
+        const tableEl = UIComponents.createTable({
+            headers,
+            rows: tableData.map(row => [
+                row.name,
+                row.speed,
+                row.course,
+                row.callsign,
+                row.destination,
+                row.distance,
+                row.actions
+            ]),
+            onRowClick: (rowData, index) => {
                 window.open(CONFIG.EXTERNAL.RAMSOY_ISHIP, "_blank", "noopener");
-            });
+            }
+        });
 
-            tr.addEventListener("mouseenter", e => {
-                tooltip.textContent = this.makeTooltipText(v);
+        // Add tooltip functionality to table
+        this.addTooltipHandlers(tableEl, tableData);
+
+        // Replace table content
+        const tbody = this.elements.tbody();
+        const table = tbody.closest('table');
+        if (table && tableEl.querySelector('table')) {
+            table.querySelector('tbody').innerHTML = tableEl.querySelector('tbody').innerHTML;
+        }
+    }
+
+    addTooltipHandlers(tableEl, vessels) {
+        const tooltip = ensureTooltip();
+        const rows = tableEl.querySelectorAll('tbody tr');
+
+        rows.forEach((row, index) => {
+            const vessel = vessels[index]._vessel;
+
+            row.addEventListener("mouseenter", e => {
+                tooltip.textContent = this.makeTooltipText(vessel);
                 tooltip.style.display = 'block';
                 tooltip.style.visibility = 'visible';
                 positionTooltip(e, tooltip);
             });
 
-            tr.addEventListener("mousemove", e => {
+            row.addEventListener("mousemove", e => {
                 positionTooltip(e, tooltip);
             });
 
-            tr.addEventListener("mouseleave", () => {
+            row.addEventListener("mouseleave", () => {
                 tooltip.style.visibility = '';
                 tooltip.style.display = 'none';
             });
-
-            // Build table cells
-            const tdName = document.createElement("td");
-            tdName.textContent = (v.name && String(v.name).trim()) || "–";
-            tr.appendChild(tdName);
-
-            const tdSpd = document.createElement("td");
-            tdSpd.textContent = (typeof v.spd_kn === "number") ? v.spd_kn.toFixed(1) : "–";
-            tr.appendChild(tdSpd);
-
-            const tdCog = document.createElement("td");
-            const rawCog = (v.cog ?? v.cog_deg);
-            const numCog = Number(rawCog);
-            if (Number.isFinite(numCog)) {
-                let cog = ((numCog % 360) + 360) % 360;
-                cog = Math.round(cog);
-                const rot = ((cog - 90) % 360 + 360) % 360;
-                tdCog.innerHTML = `<span class="cog-wrap"><svg class="cog-arrow" viewBox="0 0 48 48" aria-label="Kurs ${cog}°"><g class="outline"><line x1="8" y1="24" x2="32" y2="24"></line></g><line class="shaft" x1="8" y1="24" x2="32" y2="24"></line><polygon class="head" points="32,16 44,24 32,32 34,24"></polygon></svg><span class="cog-text">${cog}°</span></span>`;
-                tdCog.querySelector('.cog-arrow').style.transform = `rotate(${rot}deg)`;
-            } else {
-                tdCog.textContent = "–";
-            }
-            tr.appendChild(tdCog);
-
-            const tdCall = document.createElement("td");
-            tdCall.textContent = (v.callsign && String(v.callsign).trim()) || "–";
-            tr.appendChild(tdCall);
-
-            const tdDest = document.createElement("td");
-            tdDest.textContent = (v.dest && String(v.dest).trim()) || "–";
-            tr.appendChild(tdDest);
-
-            const tdDist = document.createElement("td");
-            tdDist.textContent = (typeof v.dist_nm === "number") ? v.dist_nm.toFixed(1) : "–";
-            tr.appendChild(tdDist);
-
-            const tdAct = document.createElement('td');
-            tdAct.className = 'row-actions';
-            if (v.mmsi) {
-                const a = document.createElement('a');
-                a.className = 'iconbtn';
-                a.href = this.marineTrafficUrl(v.mmsi);
-                a.target = '_blank';
-                a.rel = 'noopener';
-                a.title = 'Åpne i MarineTraffic';
-                a.innerHTML = this.iconShip;
-                a.addEventListener('click', ev => ev.stopPropagation());
-                tdAct.appendChild(a);
-            }
-            tr.appendChild(tdAct);
-            tbody.appendChild(tr);
         });
 
+        // Global handlers for cleanup
         this.elements.table().addEventListener("mouseleave", () => {
             tooltip.hidden = true;
         }, {once: true});
@@ -168,44 +176,33 @@ export class AISManager {
 
     async loadAis() {
         try {
-            this.elements.error().hidden = true;
-            const res = await fetch(this.endpoint, {cache: "no-store"});
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            UIComponents.toggleElement(this.elements.error(), false);
 
-            const text = await res.text();
+            const data = await apiClient.get(this.endpoint, 'ais');
 
-            // Check for empty response
-            if (!text || text.trim().length === 0) {
-                console.warn('Empty AIS response received');
-                appState.setState('location.ais', []);
-                return;
+            // Handle both null responses and proper data structure
+            let vessels = [];
+            if (data === null) {
+                console.warn('AIS API returned empty response');
+                vessels = [];
+            } else if (Array.isArray(data?.vessels)) {
+                vessels = data.vessels;
+            } else if (Array.isArray(data)) {
+                // Handle case where API returns array directly
+                vessels = data;
+            } else {
+                console.warn('Unexpected AIS data structure:', data);
+                vessels = [];
             }
-
-            let data;
-            try {
-                data = JSON.parse(text);
-            } catch (parseError) {
-                // Don't report JSON parsing errors as critical - just log them
-                console.warn('AIS API returned invalid JSON:', parseError.message);
-                appState.setState('location.ais', []);
-                return;
-            }
-
-            const vessels = Array.isArray(data?.vessels) ? data.vessels : [];
 
             // Update state instead of calling render directly
             appState.setState('location.ais', vessels);
 
-        } catch (err) {
-            console.error("AIS feil:", err);
+        } catch (error) {
+            console.error("AIS fetch error:", error);
             appState.setState('location.ais', []);
-
-            // Only report non-parsing errors as critical
-            if (!err.message.includes('JSON') && !err.message.includes('Unexpected token') && !err.message.includes('Invalid JSON')) {
-                reportError('ais', err, 'AIS vessel data unavailable');
-            } else {
-                console.warn('AIS parsing issue:', err.message);
-            }
+            UIComponents.toggleElement(this.elements.error(), true);
+            UIComponents.updateContent(this.elements.updated(), "feil ved oppdatering");
         }
     }
 }

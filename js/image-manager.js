@@ -1,112 +1,108 @@
-// Image and status management
+// Image management and overlay functionality
 import { CONFIG } from './constants.js';
-import { bust, humanAge } from './utils.js';
+import { bust } from './utils.js';
 import { appState } from './state-manager.js';
+import { apiClient } from './api-client.js';
+import { UIComponents } from './ui-components.js';
 
 export class ImageManager {
     constructor() {
+        this.imageEl = document.getElementById("image");
+        this.refreshMs = CONFIG.INTERVALS.IMAGE_REFRESH;
         this.lastImageTs = 0;
-        this.lastWeatherTs = 0;
-        this.imageCaptureTs = 0;
-        this.camImg = document.getElementById("cam");
-        this.statusEl = document.getElementById("status");
-        this.statusText = document.getElementById("statusText");
 
-        // Subscribe to state changes
         this.setupStateSubscriptions();
+        this.init();
     }
 
     setupStateSubscriptions() {
-        // Update UI when image status changes
+        // Update image when state changes
+        appState.subscribe('image.url', (imageUrl) => {
+            if (imageUrl) {
+                this.updateImage(imageUrl);
+            }
+        });
+
+        // Handle loading state
+        appState.subscribe('ui.loading', (loadingStates) => {
+            if (loadingStates.image !== undefined) {
+                this.updateLoadingState(loadingStates.image);
+            }
+        });
+
+        // Handle image status
         appState.subscribe('image.status', (status) => {
-            this.updateStatusUI(status);
-        });
-
-        // Update UI when image capture time changes
-        appState.subscribe('image.captureTime', (captureTime) => {
-            this.imageCaptureTs = captureTime;
-            this.updateStatus();
+            this.updateImageStatus(status);
         });
     }
 
-    refreshImage() {
-        const img = new Image();
-        img.onload = async () => {
-            this.camImg.src = img.src;
-            this.lastImageTs = Date.now();
-
-            // Update state
-            appState.setState('image.url', img.src);
-            appState.setState('image.lastUpdate', this.lastImageTs);
-
-            await this.updateImageCaptureTime();
-            this.updateStatus();
-        };
-        img.onerror = () => {
-            appState.setState('image.status', 'error');
-        };
-        img.src = bust(CONFIG.IMG_URL);
+    updateLoadingState(isLoading) {
+        if (isLoading) {
+            appState.setState('image.status', 'loading');
+        }
     }
 
-    async updateImageCaptureTime() {
+    updateImageStatus(status) {
+        // Visual feedback based on status could be added here
+        console.log(`Image status: ${status}`);
+    }
+
+    init() {
+        this.fetchImage();
+        setInterval(() => this.fetchImage(), this.refreshMs);
+    }
+
+    updateImage(imageUrl) {
+        if (this.imageEl) {
+            this.imageEl.src = imageUrl;
+            this.imageEl.onload = () => {
+                appState.setState('image.status', 'loaded');
+                this.lastImageTs = Date.now();
+            };
+            this.imageEl.onerror = () => {
+                appState.setState('image.status', 'error');
+                console.warn('Failed to load image:', imageUrl);
+            };
+        }
+    }
+
+    async fetchImage() {
         try {
-            const res = await fetch(CONFIG.ENDPOINTS.IMAGE_METADATA, {
-                cache: 'no-cache',
-                headers: { 'Accept': 'application/json' }
+            appState.setState('image.status', 'loading');
+
+            // For image URLs, we don't need to parse JSON - just validate the URL is accessible
+            const response = await fetch(bust(CONFIG.IMAGE_URL), {
+                method: 'HEAD', // Just check if image exists
+                cache: 'no-cache'
             });
 
-            if (!res.ok) {
-                console.warn('Image metadata fetch failed:', res.status);
-                return;
-            }
-
-            const data = await res.json();
-
-            if (data.success && data.lastModified) {
-                const captureTime = new Date(data.lastModified).getTime();
-                // Update state instead of instance variable
-                appState.setState('image.captureTime', captureTime);
+            if (response.ok) {
+                const imageUrl = bust(CONFIG.IMAGE_URL);
+                appState.setState('image.url', imageUrl);
+                appState.setState('image.lastUpdate', Date.now());
             } else {
-                console.warn('Invalid image metadata response:', data);
+                throw new Error(`HTTP ${response.status}: Image not available`);
             }
-        } catch (e) {
-            console.error('Error fetching image metadata:', e);
-            appState.setState('image.status', 'metadata-error');
+
+        } catch (error) {
+            console.error("Image fetch error:", error);
+            appState.setState('image.status', 'error');
+            appState.setState('image.url', null);
         }
     }
 
-    updateStatus() {
-        const captureTime = appState.getState('image.captureTime');
+    async fetchImageMetadata() {
+        try {
+            const metadata = await apiClient.get(CONFIG.ENDPOINTS.IMAGE_METADATA, 'image-metadata');
 
-        if (!captureTime) {
-            appState.setState('image.status', 'loading');
-            return;
-        }
+            if (metadata) {
+                appState.setState('image.metadata', metadata);
+                appState.setState('image.captureTime', metadata.captureTime || null);
+            }
 
-        const ageSec = Math.floor((Date.now() - captureTime) / 1000);
-        let status = 'ok';
-
-        if (ageSec > CONFIG.STATUS.IMAGE_AGE_BAD_SEC) {
-            status = 'bad';
-        } else if (ageSec > CONFIG.STATUS.IMAGE_AGE_WARN_SEC) {
-            status = 'warn';
-        }
-
-        appState.setState('image.status', status);
-    }
-
-    updateStatusUI(status) {
-        const captureTime = appState.getState('image.captureTime');
-
-        if (status === 'loading') {
-            this.statusText.textContent = "Laster…";
-            this.statusEl.className = "status-pill warn";
-        } else if (status === 'error' || status === 'metadata-error') {
-            this.statusText.textContent = "Feil ved lasting";
-            this.statusEl.className = "status-pill bad";
-        } else if (captureTime) {
-            this.statusEl.className = `status-pill ${status}`;
-            this.statusText.textContent = `Bilde ${humanAge(Date.now() - captureTime)} gammelt`;
+        } catch (error) {
+            console.error("Image metadata fetch error:", error);
+            appState.setState('image.metadata', null);
         }
     }
 }

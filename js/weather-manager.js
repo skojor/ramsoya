@@ -2,6 +2,8 @@
 import { CONFIG } from './constants.js';
 import { bust } from './utils.js';
 import { appState } from './state-manager.js';
+import { apiClient } from './api-client.js';
+import { UIComponents } from './ui-components.js';
 
 export class WeatherManager {
     constructor() {
@@ -15,34 +17,48 @@ export class WeatherManager {
     setupStateSubscriptions() {
         // Re-render when weather data changes
         appState.subscribe('weather.current', (weatherData) => {
-            if (weatherData) {
-                this.renderWeather(weatherData);
+            this.renderWeather(weatherData);
+        });
+
+        // Show loading state
+        appState.subscribe('ui.loading', (loadingStates) => {
+            if (loadingStates.weather !== undefined) {
+                this.updateLoadingState(loadingStates.weather);
             }
         });
     }
 
+    updateLoadingState(isLoading) {
+        if (isLoading) {
+            const loader = UIComponents.createLoader('Henter værdata...');
+            UIComponents.replaceContent(this.overlayEl, loader);
+            this.overlayEl.hidden = false;
+        }
+    }
+
     renderWeather(data) {
-        this.overlayEl.innerHTML = "";
+        if (!data) {
+            this.overlayEl.hidden = true;
+            return;
+        }
 
-        const wrap = (title, lines) => {
-            const section = document.createElement("section");
-            if (title) {
-                const h = document.createElement("h3");
-                h.textContent = title;
-                section.appendChild(h);
-            }
-            if (Array.isArray(lines) && lines.length) {
-                const ul = document.createElement("ul");
-                for (const line of lines) {
-                    const li = document.createElement("li");
-                    li.textContent = String(line);
-                    ul.appendChild(li);
-                }
-                section.appendChild(ul);
-            }
-            return section;
-        };
+        const cards = [];
+        const normalized = this.normalizeWeatherData(data);
 
+        for (const block of normalized) {
+            const card = UIComponents.createCard({
+                title: block.title,
+                content: block.lines,
+                className: 'weather-card'
+            });
+            cards.push(card);
+        }
+
+        UIComponents.replaceContent(this.overlayEl, cards);
+        this.overlayEl.hidden = cards.length === 0;
+    }
+
+    normalizeWeatherData(data) {
         const normalized = [];
 
         if (Array.isArray(data)) {
@@ -71,61 +87,30 @@ export class WeatherManager {
             });
         }
 
-        for (const block of normalized) {
-            this.overlayEl.appendChild(wrap(block.title, block.lines));
-        }
-
-        this.overlayEl.hidden = this.overlayEl.childElementCount === 0;
+        return normalized;
     }
 
     async fetchWeather() {
         try {
-            const res = await fetch(bust(CONFIG.WEATHER_URL), {
-                headers: { "Accept": "application/json" },
-                cache: "no-cache"
-            });
-            const text = await res.text();
+            const weatherData = await apiClient.get(bust(CONFIG.WEATHER_URL), 'weather');
 
-            // Check for empty or invalid response
-            if (!text || text.trim().length === 0) {
-                console.warn('Empty weather response received');
+            if (weatherData) {
+                appState.setState('weather.current', weatherData);
+                appState.setState('weather.lastUpdate', Date.now());
+                this.lastWeatherTs = Date.now();
+                this.updateStatus();
+            } else {
+                console.warn('No weather data received');
                 appState.setState('weather.current', null);
-                return;
             }
-
-            let json;
-            try {
-                json = JSON.parse(text);
-            } catch (parseError) {
-                try {
-                    // Try cleaning the response
-                    const cleaned = text.trim().replace(/^[\uFEFF]/, "").replace(/<\/?pre[^>]*>/gi, "");
-                    if (!cleaned || cleaned.length === 0) {
-                        console.warn('Weather response is empty after cleaning');
-                        appState.setState('weather.current', null);
-                        return;
-                    }
-                    json = JSON.parse(cleaned);
-                } catch (secondParseError) {
-                    // Don't report JSON parsing errors as critical - just log them
-                    console.warn('Weather API returned invalid JSON:', secondParseError.message);
-                    appState.setState('weather.current', null);
-                    return;
-                }
-            }
-
-            // Update state instead of calling render directly
-            appState.setState('weather.current', json);
-            appState.setState('weather.lastUpdate', Date.now());
-            this.lastWeatherTs = Date.now();
-            this.updateStatus();
-        } catch (e) {
-            console.error("Værfeil:", e);
+        } catch (error) {
+            console.error("Weather fetch error:", error);
             appState.setState('weather.current', null);
-            // Only report non-parsing errors as critical
-            if (!e.message.includes('JSON') && !e.message.includes('Unexpected token')) {
-                reportError('weather', e, 'Weather service connection failed');
-            }
+
+            // Show error in UI
+            const errorEl = UIComponents.createError('Kunne ikke hente værdata', () => this.fetchWeather());
+            UIComponents.replaceContent(this.overlayEl, errorEl);
+            this.overlayEl.hidden = false;
         }
     }
 
