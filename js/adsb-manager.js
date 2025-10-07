@@ -4,6 +4,7 @@ import { ensureTooltip, positionTooltip } from './tooltip-helpers.js';
 import { appState } from './state-manager.js';
 import { apiClient } from './api-client.js';
 import { UIComponents } from './ui-components.js';
+import { visibilityManager } from './visibility-manager.js';
 
 export class ADSBManager {
     constructor() {
@@ -47,8 +48,15 @@ export class ADSBManager {
     }
 
     init() {
+        // Initial load
         this.loadAdsb();
-        setInterval(() => this.loadAdsb(), this.refreshMs);
+
+        // Setup visibility-aware interval for real-time aircraft tracking
+        visibilityManager.setInterval('adsb',
+            () => this.loadAdsb(),
+            this.refreshMs,
+            3 // 3x slower when hidden (20s -> 60s) - aircraft move faster than ships
+        );
     }
 
     fmtUpdated(date = new Date()) {

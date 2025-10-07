@@ -3,13 +3,12 @@ import { CONFIG } from './constants.js';
 import { bust } from './utils.js';
 import { appState } from './state-manager.js';
 import { apiClient } from './api-client.js';
-import { UIComponents } from './ui-components.js';
+import { visibilityManager } from './visibility-manager.js';
 
 export class ImageManager {
     constructor() {
         this.imageEl = document.getElementById("cam"); // Fixed: changed from "image" to "cam" to match HTML
         this.refreshMs = CONFIG.INTERVALS.IMAGE_REFRESH;
-        this.lastImageTs = 0;
 
         this.setupStateSubscriptions();
         this.init();
@@ -48,8 +47,23 @@ export class ImageManager {
     }
 
     init() {
+        // Initial loads
         this.fetchImage();
-        setInterval(() => this.fetchImage(), this.refreshMs);
+        this.fetchImageMetadata();
+
+        // Setup visibility-aware interval for image updates
+        visibilityManager.setInterval('image',
+            () => this.fetchImage(),
+            this.refreshMs,
+            5 // 5x slower when hidden (20s -> 100s) - most bandwidth intensive
+        );
+
+        // Setup separate interval for image metadata (less frequent)
+        visibilityManager.setInterval('image-metadata',
+            () => this.fetchImageMetadata(),
+            CONFIG.INTERVALS.IMAGE_STATUS, // 1 second normally
+            3 // 3x slower when hidden (1s -> 3s)
+        );
     }
 
     updateImage(imageUrl) {

@@ -5,6 +5,7 @@ import { WeatherManager } from './weather-manager.js';
 import { MoonManager } from './moon-manager.js';
 import { ForecastManager } from './forecast-manager.js';
 import { SolarManager } from './solar-manager.js';
+import { visibilityManager } from './visibility-manager.js';
 
 export class WeatherApp {
     constructor() {
@@ -17,9 +18,47 @@ export class WeatherApp {
     }
 
     init() {
-        // Managers now handle their own initialization, but we can trigger initial loads
+        // Setup visibility-aware intervals instead of direct manager intervals
+        this.setupSmartIntervals();
         this.triggerInitialLoads();
         this.setupEventListeners();
+    }
+
+    setupSmartIntervals() {
+        // Image updates - most frequent, reduce significantly when hidden
+        visibilityManager.setInterval('image',
+            () => this.imageManager.fetchImage(),
+            CONFIG.INTERVALS.IMAGE_REFRESH,
+            5 // 5x slower when hidden (20s -> 100s)
+        );
+
+        // Weather updates - frequent, moderate reduction when hidden
+        visibilityManager.setInterval('weather',
+            () => this.weatherManager.fetchWeather(),
+            CONFIG.INTERVALS.WEATHER_REFRESH,
+            3 // 3x slower when hidden (30s -> 90s)
+        );
+
+        // Moon data - less frequent, minimal reduction needed
+        visibilityManager.setInterval('moon',
+            () => this.moonManager.fetchMoon(),
+            CONFIG.INTERVALS.MOON_REFRESH,
+            2 // 2x slower when hidden (15min -> 30min)
+        );
+
+        // Forecast - moderate frequency
+        visibilityManager.setInterval('forecast',
+            () => this.forecastManager.loadForecastHourly(),
+            CONFIG.INTERVALS.FORECAST_REFRESH,
+            2 // 2x slower when hidden (30min -> 60min)
+        );
+
+        // Solar events - least frequent updates needed
+        visibilityManager.setInterval('solar',
+            () => this.solarManager.loadSunriseSunset(),
+            CONFIG.INTERVALS.SOLAR_REFRESH,
+            1.5 // Minimal reduction (30min -> 45min)
+        );
     }
 
     triggerInitialLoads() {
@@ -37,9 +76,9 @@ export class WeatherApp {
             this.triggerInitialLoads();
         });
 
-        // Cleanup if needed (managers handle their own intervals now)
+        // Cleanup intervals on unload
         window.addEventListener("beforeunload", () => {
-            // Managers handle their own cleanup
+            visibilityManager.pauseAll();
         });
     }
 }
