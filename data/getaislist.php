@@ -14,7 +14,7 @@ $maxAgeMin = 10;        // max alder på posisjon i minutter
 $limitMmsi = 0;         // for testing (0 = alle)
 // ================
 
-require("../private/aiscred.php");
+require("../../private/aiscred.php");
 
 $options = [
   PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,

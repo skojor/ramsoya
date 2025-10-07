@@ -2,7 +2,7 @@
 // met_forecast_proxy.php — Proxy for MET Locationforecast/2.0 compact
 // © deg. Husk å endre app-navn/kontakt!
 
-require("../private/met_forecastcred.php");
+require("../../private/met_forecastcred.php");
 
 // Tillatte parametre
 $allowed = ['lat','lon','altitude']; // elevation alias
@@ -94,4 +94,3 @@ if ($code === 200) {
 } else {
   echo $body;
 }
-
