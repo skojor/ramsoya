@@ -1,7 +1,7 @@
 (() => {
     Chart.defaults.devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 
-    const ENDPOINT = '/verdata_split.php';
+    const ENDPOINT = '/data/verdata_split.php';
     const TZ = 'Europe/Oslo';
     const updatedEl = document.getElementById('updatedTxt');
     const rangeButtons = Array.from(document.querySelectorAll('button[data-range]'));
@@ -115,7 +115,6 @@
                     callbacks: {label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y?.toFixed?.(1) ?? '—'} °C`}
                 }
             }
-        }
     });
 
     const windChart = new Chart(document.getElementById('windChart').getContext('2d'), {

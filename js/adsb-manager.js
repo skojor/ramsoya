@@ -83,7 +83,7 @@
 
     // Fetch aircraft data from server-side proxy
     async function fetchAircraft() {
-        const url = `/adsb_proxy.php?lat=${ORIGIN.lat}&lon=${ORIGIN.lon}&radius=${MAX_DIST_KM}&max_age=${MAX_SEEN_S}`;
+        const url = `/api/adsb_proxy.php?lat=${ORIGIN.lat}&lon=${ORIGIN.lon}&radius=${MAX_DIST_KM}&max_age=${MAX_SEEN_S}`;
         const res = await fetch(url, {cache: 'no-store'});
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();

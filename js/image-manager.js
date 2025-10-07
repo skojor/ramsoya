@@ -24,7 +24,7 @@ class ImageManager {
 
     async updateImageCaptureTime() {
         try {
-            const res = await fetch('/image_metadata_proxy.php', {
+            const res = await fetch('/api/image_metadata_proxy.php', {
                 cache: 'no-cache',
                 headers: { 'Accept': 'application/json' }
             });

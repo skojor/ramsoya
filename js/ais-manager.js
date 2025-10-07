@@ -1,5 +1,5 @@
 (function () {
-    const ENDPOINT = "getaislist.php";
+    const ENDPOINT = "data/getaislist.php";
     const REFRESH_MS = 20_000;
     const $tbody = () => document.querySelector("#ais-table tbody");
     const $count = () => document.getElementById("ais-count");

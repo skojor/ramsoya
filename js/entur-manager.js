@@ -1,5 +1,5 @@
 (function () {
-    const API_URL = 'entur_api.php';
+    const API_URL = 'api/entur_api.php';
     const depEl = document.getElementById("entur-next-dep");
     const updEl = document.getElementById("entur-updated");
 
@@ -127,4 +127,3 @@
     updateEntur();
     setInterval(updateEntur, 60_000); // Refresh every minute
 })();
-
