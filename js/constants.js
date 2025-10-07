@@ -4,12 +4,12 @@ export const CONFIG = {
     WIND_ARROW_MODE: 'to',
     WIND_FLIP: true,  // Wind direction configuration
     IMAGE_URL: "siste.jpg", // Fixed: renamed from IMG_URL and removed leading slash for consistency
-    WEATHER_URL: "getweather_overlay.php",
+    WEATHER_URL: "data/getweather_overlay.php",
     IMAGE_INTERVAL_MS: 20_000,
     WEATHER_INTERVAL_MS: 30_000,
-    MOON_URL: "/met_moon_proxy.php?lat=64.33&lon=10.41",
+    MOON_URL: "/api/met_moon_proxy.php?lat=64.33&lon=10.41",
     FORECAST_URL: "/met_forecast_proxy.php?lat=64.32785&lon=10.41549",
-    SUNRISE_URL: "/sunrise_proxy.php?type=all-events",
+    SUNRISE_URL: "/api/sunrise_proxy.php?type=all-events",
     ICON_BASE: "ikoner/yr/",
     TZ_OSLO: "Europe/Oslo",
 
@@ -37,12 +37,12 @@ export const CONFIG = {
 
     // API endpoints
     ENDPOINTS: {
-        AIS: "getaislist.php",
-        ADSB: "/adsb_proxy.php",
+        AIS: "data/getaislist.php",
+        ADSB: "/api/adsb_proxy.php",
         TIDAL: "https://vannstand.kartverket.no/tideapi.php",
-        ENTUR: "entur_api.php",
-        CHARTS: "/verdata_split.php",
-        IMAGE_METADATA: "/image_metadata_proxy.php"
+        ENTUR: "api/entur_proxy.php",
+        CHARTS: "/data/verdata_split.php",
+        IMAGE_METADATA: "/api/image_metadata_proxy.php"
     },
 
     // ADS-B settings
