@@ -33,17 +33,62 @@ export class ImageManager {
         appState.subscribe('image.status', (status) => {
             this.updateImageStatus(status);
         });
+
+        // Update status text with image timing information
+        appState.subscribe('image.captureTime', (captureTime) => {
+            this.updateStatusText(captureTime);
+        });
+
+        // Also update status text when metadata changes
+        appState.subscribe('image.metadata', (metadata) => {
+            if (metadata && metadata.captureTime) {
+                this.updateStatusText(metadata.captureTime);
+            }
+        });
     }
 
     updateLoadingState(isLoading) {
         if (isLoading) {
             appState.setState('image.status', 'loading');
+            this.updateStatusTextRaw('Laster…');
         }
     }
 
     updateImageStatus(status) {
         // Visual feedback based on status could be added here
         console.log(`Image status: ${status}`);
+    }
+
+    updateStatusText(captureTime) {
+        if (!captureTime) {
+            this.updateStatusTextRaw('Ukjent tid');
+            return;
+        }
+
+        const captureDate = new Date(captureTime);
+        const now = new Date();
+        const diffMs = now - captureDate;
+        const diffSeconds = Math.floor(diffMs / 1000);
+
+        let timeText;
+        if (diffSeconds < 60) {
+            timeText = `${diffSeconds} sek siden`;
+        } else if (diffSeconds < 3600) {
+            const minutes = Math.floor(diffSeconds / 60);
+            timeText = `${minutes} min siden`;
+        } else {
+            const hours = Math.floor(diffSeconds / 3600);
+            timeText = `${hours} timer siden`;
+        }
+
+        this.updateStatusTextRaw(timeText);
+    }
+
+    updateStatusTextRaw(text) {
+        const statusTextEl = document.getElementById('statusText');
+        if (statusTextEl) {
+            statusTextEl.textContent = text;
+        }
     }
 
     init() {
