@@ -100,6 +100,17 @@ export class ChartManager {
         });
     }
 
+    async loadChartData() {
+        try {
+            appState.setState('ui.loading', { charts: true });
+            await this.fetchSeries(this.currentRange);
+        } catch (error) {
+            console.error('Failed to load chart data:', error);
+        } finally {
+            appState.setState('ui.loading', { charts: false });
+        }
+    }
+
     async fetchSeries(range) {
         try {
             const interval = this.intervalFor(range);
