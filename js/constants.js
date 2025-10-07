@@ -1,5 +1,5 @@
 // Application constants and configuration
-const CONFIG = {
+export const CONFIG = {
     WIND_ARROW_MODE: 'to',
     IMG_URL: "/siste.jpg",
     WEATHER_URL: "getweather_overlay.php",
@@ -12,7 +12,7 @@ const CONFIG = {
     TZ_OSLO: "Europe/Oslo"
 };
 
-const YR_SYMBOL_MAP = {
+export const YR_SYMBOL_MAP = {
     clearsky_day: '01d',
     clearsky_night: '01n',
     clearsky_polartwilight: '01m',
@@ -98,4 +98,4 @@ const YR_SYMBOL_MAP = {
     fog: '15'
 };
 
-const iconDefault = `${CONFIG.ICON_BASE}04.svg`;
+export const iconDefault = `${CONFIG.ICON_BASE}04.svg`;

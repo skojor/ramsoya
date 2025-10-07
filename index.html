@@ -11,43 +11,20 @@
     <title>Ramsøyvika – Kamera, Vær, Måne, Båter & Fly</title>
     <link rel="stylesheet" href="styles.css">
 
-    <!-- Helper scripts -->
-    <script src="js/windbarb-helpers.js"></script>
-    <script src="js/config.js"></script>
-    <script src="js/tooltip-helpers.js"></script>
-
     <!-- Preconnect and DNS prefetch -->
-
     <link rel="preconnect" href="https://staging.skorstad.name" crossorigin>
     <link rel="preconnect" href="https://vannstand.kartverket.no">
     <link rel="preconnect" href="https://www.marinetraffic.com">
     <link rel="preconnect" href="https://www.flightradar24.com">
+    <link rel="preconnect" href="https://ramsoyvika.no" crossorigin>
     <link rel="dns-prefetch" href="//staging.skorstad.name">
     <link rel="dns-prefetch" href="//vannstand.kartverket.no">
     <link rel="dns-prefetch" href="//www.marinetraffic.com">
     <link rel="dns-prefetch" href="//www.flightradar24.com">
+    <link rel="dns-prefetch" href="//ramsoyvika.no">
 
-    <!-- Main application scripts -->
-    <script src="js/constants.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/image-manager.js"></script>
-    <script src="js/weather-manager.js"></script>
-    <script src="js/moon-manager.js"></script>
-    <script src="js/forecast-manager.js"></script>
-    <script src="js/solar-manager.js"></script>
-    <script src="js/app-main.js"></script>
-    <script src="js/ui-manager.js"></script>
-
-
-<script>window.WIND_FLIP = true;</script>
-<link rel="preconnect" href="https://ramsoyvika.no" crossorigin>
-<link rel="preconnect" href="https://vannstand.kartverket.no">
-<link rel="preconnect" href="https://www.marinetraffic.com">
-<link rel="preconnect" href="https://www.flightradar24.com">
-<link rel="dns-prefetch" href="//ramsoyvika.no">
-<link rel="dns-prefetch" href="//vannstand.kartverket.no">
-<link rel="dns-prefetch" href="//www.marinetraffic.com">
-<link rel="dns-prefetch" href="//www.flightradar24.com">
+    <!-- Load non-module dependencies that other scripts expect -->
+    <script src="js/windbarb-helpers.js"></script>
 </head>
 
 <body>
@@ -187,26 +164,21 @@
             <canvas id="windChart"></canvas>
         </div>
     </div>
+
+    <!-- Load remaining non-module scripts -->
+    <script src="js/ais-manager.js"></script>
+    <script src="js/adsb-manager.js"></script>
+    <script src="js/tidal-manager.js"></script>
+    <script src="js/entur-manager.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+    <script src="js/chart-manager.js"></script>
+    <script src="js/ui-manager.js"></script>
+
+    <!-- Main ES6 module entry point -->
+    <script type="module" src="js/main.js"></script>
+
     <div id="ais-tooltip" hidden></div>
 </div>
-
-
-<!-- AIS-kode (uendret, men beholdt tooltip m.m.) -->
-<script src="js/ais-manager.js"></script>
-
-<!-- ADS-B: matchende tabellstil -->
-<script src="js/adsb-manager.js"></script>
-
-<!-- Flo & fjære (uendret funksjonelt) -->
-<script src="js/tidal-manager.js"></script>
-<!-- Entur backend service integration -->
-<script src="js/entur-manager.js"></script>
-
-<!-- Script for grafene -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
-<script src="js/chart-manager.js">
-
-</script>
 </body>
 </html>

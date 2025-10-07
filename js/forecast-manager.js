@@ -1,5 +1,8 @@
 // Weather forecast management
-class ForecastManager {
+import { CONFIG, YR_SYMBOL_MAP, iconDefault } from './constants.js';
+import { norm360, hourFmt } from './utils.js';
+
+export class ForecastManager {
     constructor() {
         this.forecastHourlyEl = document.getElementById("forecastHourly");
     }

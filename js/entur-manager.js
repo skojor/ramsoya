@@ -1,11 +1,26 @@
-(function () {
-    const API_URL = 'entur_api.php';
-    const depEl = document.getElementById("entur-next-dep");
-    const updEl = document.getElementById("entur-updated");
+// Entur public transport data management
+export class EnturManager {
+    constructor() {
+        this.apiUrl = 'entur_api.php';
+        this.refreshMs = 60_000; // 1 minute
 
-    const ICON_PIN = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/></svg>`;
+        this.iconPin = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/></svg>`;
 
-    function formatTime(isoString) {
+        this.elements = {
+            dep: () => document.getElementById("entur-next-dep"),
+            updated: () => document.getElementById("entur-updated")
+        };
+
+        this.init();
+    }
+
+    init() {
+        console.log('Initializing Entur integration...');
+        this.updateEntur();
+        setInterval(() => this.updateEntur(), this.refreshMs);
+    }
+
+    formatTime(isoString) {
         if (!isoString) return '—';
         const depTime = new Date(isoString);
         const now = new Date();
@@ -33,13 +48,13 @@
         }
     }
 
-    function renderBidirectionalDepartures(data) {
+    renderBidirectionalDepartures(data) {
         console.log('Rendering Entur departures:', data);
 
         const {bidirectionalDepartures, stopRamsoyUrl, stopSandviksUrl} = data;
 
         if (!bidirectionalDepartures || bidirectionalDepartures.length === 0) {
-            depEl.innerHTML = '<div>Ingen avganger funnet</div>';
+            this.elements.dep().innerHTML = '<div>Ingen avganger funnet</div>';
             return;
         }
 
@@ -54,10 +69,10 @@
             // Fix: Handle both "Ramsøy" and "Ramsy" (typo in API response)
             const isFromRamsoy = direction.includes('Ramsy →') || direction.includes('Ramsøy →');
             const stopUrl = isFromRamsoy ? stopRamsoyUrl : stopSandviksUrl;
-            const actionBtn = `<a class="iconbtn" href="${stopUrl}" target="_blank" rel="noopener" title="Åpne i Entur – ${direction}">${ICON_PIN}</a>`;
+            const actionBtn = `<a class="iconbtn" href="${stopUrl}" target="_blank" rel="noopener" title="Åpne i Entur – ${direction}">${this.iconPin}</a>`;
 
             // Format departure time
-            const depTimeFormatted = formatTime(dep.time);
+            const depTimeFormatted = this.formatTime(dep.time);
 
             // Format on-time status with enhanced logic
             let onTimeStatus = '';
@@ -68,7 +83,7 @@
             // Format arrival info with verification status
             let arrivalInfo = '';
             if (dep.arrivalTime && dep.arrivalTime !== dep.time) {
-                const arrivalTimeFormatted = formatTime(dep.arrivalTime);
+                const arrivalTimeFormatted = this.formatTime(dep.arrivalTime);
                 // Extract destination from direction for arrival info
                 const destination = direction.includes('Sandviksberget') ? 'Sandviksberget' : 'Ramsøy';
                 arrivalInfo = ` • Ankomst ${destination} ${arrivalTimeFormatted}`;
@@ -89,15 +104,15 @@
         });
 
         console.log('Generated HTML:', html);
-        depEl.innerHTML = html;
+        this.elements.dep().innerHTML = html;
     }
 
-    async function updateEntur() {
+    async updateEntur() {
         try {
             console.log('Starting Entur update...');
-            updEl.textContent = "oppdaterer…";
+            this.elements.updated().textContent = "oppdaterer…";
 
-            const url = `${API_URL}?bidirectional=true&_=${Date.now()}`;
+            const url = `${this.apiUrl}?bidirectional=true&_=${Date.now()}`;
             console.log('Fetching Entur data from:', url);
 
             const response = await fetch(url);
@@ -109,22 +124,16 @@
             console.log('Entur API response:', result);
 
             if (result.success) {
-                renderBidirectionalDepartures(result.data);
-                updEl.textContent = `oppdatert ${result.updated}`;
+                this.renderBidirectionalDepartures(result.data);
+                this.elements.updated().textContent = `oppdatert ${result.updated}`;
                 console.log('Entur update successful');
             } else {
                 throw new Error(result.error || 'Ukjent feil fra API');
             }
         } catch (error) {
             console.error('Entur frontend error:', error);
-            depEl.innerHTML = '<div style="color: #ffb3b3;">Kunne ikke hente avganger: ' + error.message + '</div>';
-            updEl.textContent = "feil ved oppdatering";
+            this.elements.dep().innerHTML = '<div style="color: #ffb3b3;">Kunne ikke hente avganger: ' + error.message + '</div>';
+            this.elements.updated().textContent = "feil ved oppdatering";
         }
     }
-
-    // Load initially and set up refresh
-    console.log('Initializing Entur integration...');
-    updateEntur();
-    setInterval(updateEntur, 60_000); // Refresh every minute
-})();
-
+}

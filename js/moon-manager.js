@@ -1,5 +1,7 @@
 // Moon phase management
-class MoonManager {
+import { CONFIG } from './constants.js';
+
+export class MoonManager {
     constructor() {
         this.moonSvg = document.getElementById("moonSvg");
         this.moonText = document.getElementById("moonText");

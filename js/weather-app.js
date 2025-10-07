@@ -1,5 +1,12 @@
 // Main application initialization
-class WeatherApp {
+import { CONFIG } from './constants.js';
+import { ImageManager } from './image-manager.js';
+import { WeatherManager } from './weather-manager.js';
+import { MoonManager } from './moon-manager.js';
+import { ForecastManager } from './forecast-manager.js';
+import { SolarManager } from './solar-manager.js';
+
+export class WeatherApp {
     constructor() {
         this.imageManager = new ImageManager();
         this.weatherManager = new WeatherManager();
@@ -49,9 +56,4 @@ class WeatherApp {
     }
 }
 
-// Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    const app = new WeatherApp();
-    app.init();
-});
-
+// Export the class but don't initialize here - let main.js handle it

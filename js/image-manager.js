@@ -1,5 +1,8 @@
 // Image and status management
-class ImageManager {
+import { CONFIG } from './constants.js';
+import { bust, humanAge } from './utils.js';
+
+export class ImageManager {
     constructor() {
         this.lastImageTs = 0;
         this.lastWeatherTs = 0;

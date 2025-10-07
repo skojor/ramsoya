@@ -1,5 +1,7 @@
 // Solar events management
-class SolarManager {
+import { CONFIG } from './constants.js';
+
+export class SolarManager {
     constructor() {
         this.nextSunEventEl = document.getElementById("nextSunEvent");
     }
@@ -47,14 +49,14 @@ class SolarManager {
 
             if (!res.ok) {
                 console.error('Sunrise HTTP', res.status, data);
-                this.nextSunEventEl.innerHTML = '<div class="sun-error">Kunne ikke hente soldata</div>';
+                this.nextSunEventEl.innerHTML = '<div class="sun-error">Kunne inte hente soldata</div>';
                 return;
             }
 
             this.nextSunEventEl.innerHTML = this.formatAllSolarEvents(data);
         } catch (e) {
             console.error('Sunrise error', e);
-            this.nextSunEventEl.innerHTML = '<div class="sun-error">Kunne ikke hente soldata</div>';
+            this.nextSunEventEl.innerHTML = '<div class="sun-error">Kunne inte hente soldata</div>';
         }
     }
 }
