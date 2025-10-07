@@ -1,9 +1,23 @@
 // Solar events management
 import { CONFIG } from './constants.js';
+import { appState } from './state-manager.js';
+import { reportError } from './error-handler.js';
 
 export class SolarManager {
     constructor() {
         this.nextSunEventEl = document.getElementById("nextSunEvent");
+
+        // Subscribe to state changes
+        this.setupStateSubscriptions();
+    }
+
+    setupStateSubscriptions() {
+        // Update UI when solar data changes
+        appState.subscribe('astronomy.solar', (solarData) => {
+            if (solarData) {
+                this.renderSolarEvents(solarData);
+            }
+        });
     }
 
     formatAllSolarEvents(data) {
@@ -42,21 +56,27 @@ export class SolarManager {
         return html;
     }
 
+    renderSolarEvents(data) {
+        this.nextSunEventEl.innerHTML = this.formatAllSolarEvents(data);
+    }
+
     async loadSunriseSunset() {
         try {
             const res = await fetch(CONFIG.SUNRISE_URL, { cache: 'no-cache' });
-            const data = await res.json();
 
             if (!res.ok) {
-                console.error('Sunrise HTTP', res.status, data);
-                this.nextSunEventEl.innerHTML = '<div class="sun-error">Kunne inte hente soldata</div>';
-                return;
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
             }
 
-            this.nextSunEventEl.innerHTML = this.formatAllSolarEvents(data);
-        } catch (e) {
-            console.error('Sunrise error', e);
-            this.nextSunEventEl.innerHTML = '<div class="sun-error">Kunne inte hente soldata</div>';
+            const data = await res.json();
+
+            // Update state instead of direct rendering
+            appState.setState('astronomy.solar', data);
+
+        } catch (error) {
+            reportError('solar', error, 'Failed to fetch sunrise/sunset data');
+            appState.setState('astronomy.solar', null);
+            this.nextSunEventEl.innerHTML = '<div class="sun-error">Kunne ikke hente soldata</div>';
         }
     }
 }

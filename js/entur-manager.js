@@ -1,5 +1,7 @@
 // Entur public transport data management
 import { CONFIG } from './constants.js';
+import { appState } from './state-manager.js';
+import { reportError } from './error-handler.js';
 
 export class EnturManager {
     constructor() {
@@ -13,7 +15,17 @@ export class EnturManager {
             updated: () => document.getElementById("entur-updated")
         };
 
+        this.setupStateSubscriptions();
         this.init();
+    }
+
+    setupStateSubscriptions() {
+        // Update UI when transport data changes
+        appState.subscribe('transport.entur', (enturData) => {
+            if (enturData) {
+                this.renderBidirectionalDepartures(enturData);
+            }
+        });
     }
 
     init() {
@@ -53,7 +65,7 @@ export class EnturManager {
     renderBidirectionalDepartures(data) {
         console.log('Rendering Entur departures:', data);
 
-        const {bidirectionalDepartures, stopRamsoyUrl, stopSandviksUrl} = data;
+        const {bidirectionalDepartures, stopRamsoyUrl, stopSandviksUrl, updated} = data;
 
         if (!bidirectionalDepartures || bidirectionalDepartures.length === 0) {
             this.elements.dep().innerHTML = '<div>Ingen avganger funnet</div>';
@@ -107,6 +119,7 @@ export class EnturManager {
 
         console.log('Generated HTML:', html);
         this.elements.dep().innerHTML = html;
+        this.elements.updated().textContent = `oppdatert ${updated}`;
     }
 
     async updateEntur() {
@@ -126,14 +139,15 @@ export class EnturManager {
             console.log('Entur API response:', result);
 
             if (result.success) {
-                this.renderBidirectionalDepartures(result.data);
-                this.elements.updated().textContent = `oppdatert ${result.updated}`;
+                // Update state instead of direct rendering
+                appState.setState('transport.entur', result.data);
                 console.log('Entur update successful');
             } else {
                 throw new Error(result.error || 'Ukjent feil fra API');
             }
         } catch (error) {
-            console.error('Entur frontend error:', error);
+            reportError('entur', error, 'Failed to fetch public transport departures');
+            appState.setState('transport.entur', null);
             this.elements.dep().innerHTML = '<div style="color: #ffb3b3;">Kunne ikke hente avganger: ' + error.message + '</div>';
             this.elements.updated().textContent = "feil ved oppdatering";
         }

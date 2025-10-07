@@ -86,12 +86,32 @@ export class WeatherManager {
             });
             const text = await res.text();
 
+            // Check for empty or invalid response
+            if (!text || text.trim().length === 0) {
+                console.warn('Empty weather response received');
+                appState.setState('weather.current', null);
+                return;
+            }
+
             let json;
             try {
                 json = JSON.parse(text);
-            } catch {
-                const cleaned = text.trim().replace(/^[\uFEFF]/, "").replace(/<\/?pre[^>]*>/gi, "");
-                json = JSON.parse(cleaned);
+            } catch (parseError) {
+                try {
+                    // Try cleaning the response
+                    const cleaned = text.trim().replace(/^[\uFEFF]/, "").replace(/<\/?pre[^>]*>/gi, "");
+                    if (!cleaned || cleaned.length === 0) {
+                        console.warn('Weather response is empty after cleaning');
+                        appState.setState('weather.current', null);
+                        return;
+                    }
+                    json = JSON.parse(cleaned);
+                } catch (secondParseError) {
+                    // Don't report JSON parsing errors as critical - just log them
+                    console.warn('Weather API returned invalid JSON:', secondParseError.message);
+                    appState.setState('weather.current', null);
+                    return;
+                }
             }
 
             // Update state instead of calling render directly
@@ -102,14 +122,10 @@ export class WeatherManager {
         } catch (e) {
             console.error("Værfeil:", e);
             appState.setState('weather.current', null);
-            // Add error to global error state
-            const errors = appState.getState('ui.errors') || [];
-            errors.push({
-                type: 'weather',
-                message: e.message,
-                timestamp: Date.now()
-            });
-            appState.setState('ui.errors', errors);
+            // Only report non-parsing errors as critical
+            if (!e.message.includes('JSON') && !e.message.includes('Unexpected token')) {
+                reportError('weather', e, 'Weather service connection failed');
+            }
         }
     }
 

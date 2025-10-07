@@ -1,6 +1,8 @@
 // ADS-B aircraft tracking management
 import { CONFIG } from './constants.js';
 import { ensureTooltip, positionTooltip } from './tooltip-helpers.js';
+import { appState } from './state-manager.js';
+import { reportError } from './error-handler.js';
 
 export class ADSBManager {
     constructor() {
@@ -11,7 +13,6 @@ export class ADSBManager {
 
         this.iconSearch = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4z"/></svg>`;
 
-        // DOM element getters
         this.elements = {
             tbody: () => document.querySelector('#adsb-table tbody'),
             wrap: () => document.getElementById('adsb-table-wrap'),
@@ -21,7 +22,15 @@ export class ADSBManager {
             updated: () => document.getElementById('adsb-updated')
         };
 
+        this.setupStateSubscriptions();
         this.init();
+    }
+
+    setupStateSubscriptions() {
+        // Re-render when ADS-B data changes
+        appState.subscribe('location.adsb', (aircraft) => {
+            this.renderAircraft(aircraft);
+        });
     }
 
     init() {
@@ -113,10 +122,20 @@ export class ADSBManager {
     async fetchAircraft() {
         const url = `${CONFIG.ENDPOINTS.ADSB}?lat=${this.origin.lat}&lon=${this.origin.lon}&radius=${this.maxDistKm}&max_age=${this.maxSeenS}`;
         const res = await fetch(url, {cache: 'no-store'});
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to fetch aircraft data`);
         const data = await res.json();
-        if (!data.success) throw new Error(data.error || 'Server error');
+        if (!data.success) throw new Error(data.error || 'Server error in aircraft data');
         return data;
+    }
+
+    renderAircraft(aircraft) {
+        const hasRows = aircraft.length > 0;
+        this.elements.wrap().hidden = !hasRows;
+        this.elements.empty().hidden = hasRows;
+        this.elements.count().textContent = aircraft.length;
+        this.elements.updated().textContent = `oppdatert ${this.fmtUpdated()}`;
+
+        this.render(aircraft);
     }
 
     makeHeadingCell(track) {
@@ -217,16 +236,14 @@ export class ADSBManager {
             const data = await this.fetchAircraft();
             const list = data.aircraft || [];
 
-            const hasRows = list.length > 0;
-            this.elements.wrap().hidden = !hasRows;
-            this.elements.empty().hidden = hasRows;
-            this.render(list);
-            this.elements.count().textContent = list.length;
-            this.elements.updated().textContent = `oppdatert ${this.fmtUpdated()}`;
-        } catch (err) {
-            console.error('ADS-B feil:', err);
+            // Update state instead of direct rendering
+            appState.setState('location.adsb', list);
+
+        } catch (error) {
+            reportError('adsb', error, 'Failed to fetch ADS-B aircraft data');
+            appState.setState('location.adsb', []);
             this.elements.error().hidden = false;
-            this.elements.updated().textContent = 'feil ved oppdatering';
+            this.elements.updated().textContent = "feil ved oppdatering";
         }
     }
 }

@@ -1,10 +1,24 @@
 // Weather forecast management
 import { CONFIG, YR_SYMBOL_MAP, iconDefault } from './constants.js';
 import { norm360, hourFmt } from './utils.js';
+import { appState } from './state-manager.js';
+import { reportError } from './error-handler.js';
 
 export class ForecastManager {
     constructor() {
         this.forecastHourlyEl = document.getElementById("forecastHourly");
+
+        // Subscribe to state changes
+        this.setupStateSubscriptions();
+    }
+
+    setupStateSubscriptions() {
+        // Update UI when forecast data changes
+        appState.subscribe('weather.forecast', (forecastData) => {
+            if (forecastData) {
+                this.renderHourly(forecastData);
+            }
+        });
     }
 
     iconForSymbol(symbol_code) {
@@ -84,29 +98,44 @@ export class ForecastManager {
             const raw = await res.text();
 
             if (!res.ok) {
-                console.error('Forecast HTTP', res.status, raw.slice(0, 200));
-                this.forecastHourlyEl.textContent = 'Kunne ikke hente varsel.';
+                throw new Error(`HTTP ${res.status}: Failed to fetch forecast data`);
+            }
+
+            // Check for empty response
+            if (!raw || raw.trim().length === 0) {
+                console.warn('Empty forecast response received');
+                appState.setState('weather.forecast', null);
                 return;
             }
 
             let json;
             try {
                 json = JSON.parse(raw);
-            } catch (e) {
-                console.error('Forecast JSON', e, raw.slice(0, 200));
-                this.forecastHourlyEl.textContent = 'Ugyldig varseldata.';
+            } catch (parseError) {
+                // Don't report JSON parsing errors as critical - just log them
+                console.warn('Forecast API returned invalid JSON:', parseError.message);
+                appState.setState('weather.forecast', null);
                 return;
             }
 
             const series = json?.properties?.timeseries || [];
             if (!series.length) {
-                this.forecastHourlyEl.textContent = 'Ingen varseldata.';
+                console.warn('No forecast data available in response');
+                appState.setState('weather.forecast', null);
                 return;
             }
 
-            this.renderHourly(series);
-        } catch (e) {
-            console.error('Forecast error', e);
+            // Update state instead of direct rendering
+            appState.setState('weather.forecast', series);
+
+        } catch (error) {
+            // Only report non-parsing errors as critical
+            if (!error.message.includes('JSON') && !error.message.includes('Unexpected token') && !error.message.includes('Invalid JSON')) {
+                reportError('forecast', error, 'Failed to load hourly forecast data');
+            } else {
+                console.warn('Forecast parsing issue:', error.message);
+            }
+            appState.setState('weather.forecast', null);
             this.forecastHourlyEl.textContent = 'Kunne ikke hente varsel.';
         }
     }

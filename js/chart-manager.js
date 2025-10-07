@@ -1,5 +1,7 @@
 // Weather statistics chart management
 import { CONFIG } from './constants.js';
+import { appState } from './state-manager.js';
+import { reportError } from './error-handler.js';
 
 export class ChartManager {
     constructor() {
@@ -15,15 +17,26 @@ export class ChartManager {
             rangeButtons: () => Array.from(document.querySelectorAll('button[data-range]'))
         };
 
+        // Subscribe to state changes
+        this.setupStateSubscriptions();
         this.init();
+    }
+
+    setupStateSubscriptions() {
+        // Update charts when chart data changes
+        appState.subscribe('charts.data', (chartData) => {
+            if (chartData) {
+                this.updateCharts(chartData);
+            }
+        });
     }
 
     init() {
         this.setupCharts();
         this.setupEventListeners();
         this.setActive(this.currentRange);
-        this.render(this.currentRange).catch(console.error);
-        setInterval(() => this.render(this.currentRange).catch(console.error), this.refreshMs);
+        this.render(this.currentRange);
+        setInterval(() => this.render(this.currentRange), this.refreshMs);
     }
 
     intervalFor(range) {
@@ -65,25 +78,56 @@ export class ChartManager {
     }
 
     async fetchSeries(range) {
-        const interval = this.intervalFor(range);
-        const url = this.buildURL(range, interval);
-        const t0 = performance.now();
-        const res = await fetch(url, {cache: 'no-store'});
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const {rows = []} = await res.json();
+        try {
+            const interval = this.intervalFor(range);
+            const url = this.buildURL(range, interval);
+            const t0 = performance.now();
+            const res = await fetch(url, {cache: 'no-store'});
 
-        let tempBrygga = this.downsample(this.makeXY(rows, 'temp_brygga'));
-        let tempLia = this.downsample(this.makeXY(rows, 'temp_lia'));
-        let wtempSjo = this.downsample(this.makeXY(rows, 'wtemp_sjo'));
-        let windBrygga = this.downsample(this.makeXY(rows, 'wind_brygga'));
-        let gustBrygga = this.downsample(this.makeXY(rows, 'gust_brygga'));
-        let windLia = this.downsample(this.makeXY(rows, 'wind_lia'));
-        let gustLia = this.downsample(this.makeXY(rows, 'gust_lia'));
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: Failed to fetch chart data`);
+            }
 
-        const ms = Math.round(performance.now() - t0);
-        this.elements.updated().textContent = `Oppdatert ${new Date().toLocaleTimeString('nb-NO')} • ${range} @ ${interval} • ${ms} ms`;
+            const responseData = await res.json();
+            const {rows = []} = responseData;
 
-        return {tempBrygga, tempLia, wtempSjo, windBrygga, gustBrygga, windLia, gustLia};
+            let tempBrygga = this.downsample(this.makeXY(rows, 'temp_brygga'));
+            let tempLia = this.downsample(this.makeXY(rows, 'temp_lia'));
+            let wtempSjo = this.downsample(this.makeXY(rows, 'wtemp_sjo'));
+            let windBrygga = this.downsample(this.makeXY(rows, 'wind_brygga'));
+            let gustBrygga = this.downsample(this.makeXY(rows, 'gust_brygga'));
+            let windLia = this.downsample(this.makeXY(rows, 'wind_lia'));
+            let gustLia = this.downsample(this.makeXY(rows, 'gust_lia'));
+
+            const ms = Math.round(performance.now() - t0);
+            this.elements.updated().textContent = `Oppdatert ${new Date().toLocaleTimeString('nb-NO')} • ${range} @ ${interval} • ${ms} ms`;
+
+            const chartData = {tempBrygga, tempLia, wtempSjo, windBrygga, gustBrygga, windLia, gustLia};
+
+            // Update state instead of direct chart update
+            appState.setState('charts.data', chartData);
+
+            return chartData;
+        } catch (error) {
+            reportError('charts', error, `Failed to fetch chart data for range: ${range}`);
+            this.elements.updated().textContent = 'Feil ved henting av data';
+            throw error;
+        }
+    }
+
+    updateCharts(data) {
+        if (this.tempChart && this.windChart) {
+            this.tempChart.data.datasets[0].data = data.tempBrygga;
+            this.tempChart.data.datasets[1].data = data.tempLia;
+            this.tempChart.data.datasets[2].data = data.wtempSjo;
+            this.tempChart.update('none');
+
+            this.windChart.data.datasets[0].data = data.windBrygga;
+            this.windChart.data.datasets[1].data = data.gustBrygga;
+            this.windChart.data.datasets[2].data = data.windLia;
+            this.windChart.data.datasets[3].data = data.gustLia;
+            this.windChart.update('none');
+        }
     }
 
     setupCharts() {
@@ -158,17 +202,12 @@ export class ChartManager {
     }
 
     async render(range) {
-        const s = await this.fetchSeries(range);
-        this.tempChart.data.datasets[0].data = s.tempBrygga;
-        this.tempChart.data.datasets[1].data = s.tempLia;
-        this.tempChart.data.datasets[2].data = s.wtempSjo;
-        this.tempChart.update('none');
-
-        this.windChart.data.datasets[0].data = s.windBrygga;
-        this.windChart.data.datasets[1].data = s.gustBrygga;
-        this.windChart.data.datasets[2].data = s.windLia;
-        this.windChart.data.datasets[3].data = s.gustLia;
-        this.windChart.update('none');
+        try {
+            await this.fetchSeries(range);
+        } catch (error) {
+            // Error already reported in fetchSeries
+            console.warn('Chart render failed for range:', range);
+        }
     }
 
     setActive(range) {
@@ -180,7 +219,7 @@ export class ChartManager {
             btn.addEventListener('click', () => {
                 this.currentRange = btn.dataset.range;
                 this.setActive(this.currentRange);
-                this.render(this.currentRange).catch(console.error);
+                this.render(this.currentRange);
             });
         });
     }
