@@ -127,3 +127,4 @@
     updateEntur();
     setInterval(updateEntur, 60_000); // Refresh every minute
 })();
+

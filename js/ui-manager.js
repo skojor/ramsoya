@@ -25,3 +25,4 @@ window.addEventListener("beforeunload", () => {
     clearInterval(fcTimer);
     clearInterval(sunTimer);
 });
+

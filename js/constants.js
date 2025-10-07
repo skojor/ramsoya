@@ -19,3 +19,4 @@ const YR_SYMBOL_MAP = {
 };
 
 const iconDefault = `${CONFIG.ICON_BASE}04.svg`;
+
