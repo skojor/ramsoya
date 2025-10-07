@@ -6,79 +6,39 @@
   Pastor S.
 -->
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ramsøyvika – Kamera, Vær, Måne, Båter & Fly</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Ramsøyvika – Kamera, Vær, Måne, Båter & Fly</title>
     <link rel="stylesheet" href="styles.css">
 
-<script id="windbarb-helpers">
-;(() => {
-  // m/s -> kn
-  const msToKn = (ms) => ms * 1.943844;
+    <!-- Helper scripts -->
+    <script src="js/windbarb-helpers.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/tooltip-helpers.js"></script>
 
-  // Vindbarb: fjær i hale (x0), pilspiss i nese (x1)
-  function windBarbSVG(speedMS, dirDeg){
-    const kn = msToKn(speedMS || 0);
-    const rounded = Math.round(kn / 5) * 5;
-    let remain = rounded;
+    <!-- Preconnect and DNS prefetch -->
 
-    const pennants = Math.floor(remain / 50); remain %= 50;
-    const fulls    = Math.floor(remain / 10); remain %= 10;
-    const halves   = remain >= 5 ? 1 : 0;
+    <link rel="preconnect" href="https://staging.skorstad.name" crossorigin>
+    <link rel="preconnect" href="https://vannstand.kartverket.no">
+    <link rel="preconnect" href="https://www.marinetraffic.com">
+    <link rel="preconnect" href="https://www.flightradar24.com">
+    <link rel="dns-prefetch" href="//staging.skorstad.name">
+    <link rel="dns-prefetch" href="//vannstand.kartverket.no">
+    <link rel="dns-prefetch" href="//www.marinetraffic.com">
+    <link rel="dns-prefetch" href="//www.flightradar24.com">
 
-    // Geometri
-    const x0 = 8, x1 = 40;   // stang: hale -> nese
-    const y  = 24;
-    const step = 4;
-    const barbLenFull = 12;
-    const barbLenHalf = 0.55 * barbLenFull;
-    const barbAngle = -50 * Math.PI/180;
+    <!-- Main application scripts -->
+    <script src="js/constants.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/image-manager.js"></script>
+    <script src="js/weather-manager.js"></script>
+    <script src="js/moon-manager.js"></script>
+    <script src="js/forecast-manager.js"></script>
+    <script src="js/solar-manager.js"></script>
+    <script src="js/app-main.js"></script>
+    <script src="js/ui-manager.js"></script>
 
-    const parts = [];
-    // Stang
-    parts.push('<line x1="'+x0+'" y1="'+y+'" x2="'+x1+'" y2="'+y+'" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>');
 
-    // Fjær i HALEN (x0)
-    let x = x0;
-    for (let i = 0; i < pennants; i++){
-      const xb = x; x += step;
-      const xTip = xb - barbLenFull * Math.cos(barbAngle);
-      const yTip = y  + barbLenFull * Math.sin(barbAngle);
-      parts.push('<polygon points="'+xb+','+y+' '+xTip+','+yTip+' '+xb+','+(y-1)+'" fill="currentColor"/>');
-    }
-    for (let i = 0; i < fulls; i++){
-      const xb = x; x += step;
-      const xEnd = xb - barbLenFull * Math.cos(barbAngle);
-      const yEnd = y  + barbLenFull * Math.sin(barbAngle);
-      parts.push('<line x1="'+xb+'" y1="'+y+'" x2="'+xEnd+'" y2="'+yEnd+'" stroke="currentColor" stroke-width="2"/>');
-    }
-    if (halves){
-      const xb = x; x += step;
-      const xEnd = xb - barbLenHalf * Math.cos(barbAngle);
-      const yEnd = y  + barbLenHalf * Math.sin(barbAngle);
-      parts.push('<line x1="'+xb+'" y1="'+y+'" x2="'+xEnd+'" y2="'+yEnd+'" stroke="currentColor" stroke-width="2"/>');
-    }
-
-    // Pilspiss i NESA (x1)
-    parts.push('<polygon points="'+x1+','+y+' '+(x1-6)+','+(y-4)+' '+(x1-6)+','+(y+4)+'" fill="currentColor"/>');
-
-    // Rotasjon: FROM-retning. Sett window.WIND_FLIP=true for 180° snu
-    const flip = window.WIND_FLIP === true;
-    let rot = (dirDeg ?? 0) - 90;
-    if (flip) rot += 180;
-
-    // Stabil rotasjon rundt (24,24) med <g transform>
-    return '<svg class="wind-barb" viewBox="0 0 48 48" role="img" aria-label="Vind '+Math.round(kn)+' kn, retning '+Math.round(dirDeg)+'°">'
-         + '<g transform="rotate('+rot+' 24 24)">' + parts.join('') + '</g>'
-         + '</svg>';
-  }
-
-  // Eksponer globalt
-  window.windBarbSVG = windBarbSVG;
-  // Default: ikke snu. Sett window.WIND_FLIP = true senere for 180°
-  if (window.WIND_FLIP === undefined) window.WIND_FLIP = false;
-})();
-</script>
 <script>window.WIND_FLIP = true;</script>
 <link rel="preconnect" href="https://ramsoyvika.no" crossorigin>
 <link rel="preconnect" href="https://vannstand.kartverket.no">
@@ -89,831 +49,164 @@
 <link rel="dns-prefetch" href="//www.marinetraffic.com">
 <link rel="dns-prefetch" href="//www.flightradar24.com">
 </head>
+
 <body>
 
-  <script>
-  // Global, robust tooltip creator used by both AIS and ADS-B
-  (function(){
-    function ensureTooltip(){
-      let t = document.getElementById('tooltip-global');
-      if (!t){
-        t = document.createElement('div');
-        t.id = 'tooltip-global';
-        t.setAttribute('role','status');
-        t.style.position = 'fixed';
-        t.style.left = '0px';
-        t.style.top  = '0px';
-        t.style.padding = '8px 10px';
-        t.style.background = 'rgba(8,12,18,.96)';
-        t.style.color = '#e6edf3';
-        t.style.border = '1px solid #2a3340';
-        t.style.borderRadius = '8px';
-        t.style.boxShadow = '0 10px 30px rgba(0,0,0,.45)';
-        t.style.fontSize = '.9rem';
-        t.style.lineHeight = '1.35';
-        t.style.whiteSpace = 'pre-line';
-        t.style.pointerEvents = 'none';
-        t.style.maxWidth = '360px';
-        t.style.zIndex = '2147483647'; // over alt
-        t.style.display = 'none';
-        document.body.appendChild(t);
-      }
-      return t;
-    }
-    window.__ensureTooltip = ensureTooltip;
-    window.__positionTooltip = function(e, t){
-      const OFFSET = 16;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      let x = e.clientX + OFFSET, y = e.clientY + OFFSET;
-      // temporarily show to measure
-      const prevDisp = t.style.display;
-      const prevVis  = t.style.visibility;
-      t.style.display = 'block';
-      t.style.visibility = 'hidden';
-      const rect = t.getBoundingClientRect();
-      if (x + rect.width  > vw) x = Math.max(8, vw - rect.width  - 8);
-      if (y + rect.height > vh) y = Math.max(8, vh - rect.height - 8);
-      t.style.left = x + 'px';
-      t.style.top  = y + 'px';
-      t.style.visibility = prevVis || '';
-      t.style.display = prevDisp || 'block';
-    };
-  })();
-  </script>
 
-  <div class="page">
+<div class="page">
     <main class="stage" aria-live="polite">
-      <img id="cam" alt="Siste webkamerabilde fra Ramsøy" decoding="async" loading="eager" fetchpriority="high">
-      <aside class="overlay" id="weatherOverlay" hidden></aside>
-      <div class="status-pill ok" id="status"><span class="dot" aria-hidden="true"></span><span id="statusText">Laster…</span></div>
+        <img id="cam" alt="Siste webkamerabilde fra Ramsøy" decoding="async" loading="eager" fetchpriority="high">
+        <aside class="overlay" id="weatherOverlay" hidden></aside>
+        <div class="status-pill ok" id="status"><span class="dot" aria-hidden="true"></span><span id="statusText">Laster…</span>
+        </div>
     </main>
 
     <!-- MÅNE + VARSEL PÅ SAMME LINJE -->
     <div class="astro-row">
-      <section class="forecastHourly compact">
-        <div class="fcH-head"><div>Neste 24 timer</div><div class="fcH-note">Oppdateres hver 30. min</div></div>
-        <div class="fcH-strip" id="forecastHourly" aria-live="polite"></div>
-
+        <section class="forecastHourly compact">
+            <div class="fcH-head">
+                <div>Neste 24 timer</div>
+                <div class="fcH-note">Oppdateres hver 30. min</div>
+            </div>
+            <div class="fcH-strip" id="forecastHourly" aria-live="polite"></div>
 
 
         </section>
 
-      <section class="moon-card" id="moonCard" aria-live="polite">
-          <!-- Solar events integrated in mooncard -->
-          <div class="fcH-solar" id="solarEvents" aria-live="polite">
-              <div class="moon-title">Soloppgang og solnedgang</div>
-              <div class="sun-events" id="nextSunEvent">
-                  <div class="sun-loading">Henter soldata...</div>
-              </div>
-          </div>
+        <section class="moon-card" id="moonCard" aria-live="polite">
+            <!-- Solar events integrated in mooncard -->
+            <div class="fcH-solar" id="solarEvents" aria-live="polite">
+                <div class="moon-title">Soloppgang og solnedgang</div>
+                <div class="sun-events" id="nextSunEvent">
+                    <div class="sun-loading">Henter soldata...</div>
+                </div>
+            </div>
 
-        <div><svg class="moon-svg" id="moonSvg" viewBox="0 0 120 120" role="img" aria-label="Månefase"></svg>
-        <div class="moon-info">
-          <div class="moon-title">Månefase</div>
-          <div id="moonText" class="muted">Henter fra MET…</div>
-          <hr>
-          <div class="moon-title">Flo og fjære</div>
-          <div id="tide-next"><div>Neste: <strong id="tideNext1">—</strong></div><div>Deretter: <strong id="tideNext2">—</strong></div></div>
-        </div></div>
-      </section>
+            <div>
+                <svg class="moon-svg" id="moonSvg" viewBox="0 0 120 120" role="img" aria-label="Månefase"></svg>
+                <div class="moon-info">
+                    <div class="moon-title">Månefase</div>
+                    <div id="moonText" class="muted">Henter fra MET…</div>
+                    <hr>
+                    <div class="moon-title">Flo og fjære</div>
+                    <div id="tide-next">
+                        <div>Neste: <strong id="tideNext1">—</strong></div>
+                        <div>Deretter: <strong id="tideNext2">—</strong></div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-<!-- ENTUR: Hurtigbåt – neste avganger -->
-<section id="entur-section" class="forecastHourly compact" aria-labelledby="entur-heading">
-  <div class="fcH-head">
-    <h2 id="entur-heading" style="margin:0;font-size:1.05rem;">Hurtigbåt</h2>
-    <div class="fcH-note"><span id="entur-updated">oppdaterer…</span></div>
-  </div>
-  <div class="fcH-strip" style="display:block;padding:4px 2px;">
-    <div class="fcH-card" style="width:auto;display:block;">
-      <div class="label" style="opacity:.9;margin-bottom:.25rem;">Neste avganger</div>
-      <div id="entur-next-dep" class="value"></div>
-      <!-- NB: Ikke egen actions-linje her lenger; knapper ligger per linje -->
+        <!-- ENTUR: Hurtigbåt – neste avganger -->
+        <section id="entur-section" class="forecastHourly compact" aria-labelledby="entur-heading">
+            <div class="fcH-head">
+                <h2 id="entur-heading" style="margin:0;font-size:1.05rem;">Hurtigbåt</h2>
+                <div class="fcH-note"><span id="entur-updated">oppdaterer…</span></div>
+            </div>
+            <div class="fcH-strip" style="display:block;padding:4px 2px;">
+                <div class="fcH-card" style="width:auto;display:block;">
+                    <div class="label" style="opacity:.9;margin-bottom:.25rem;">Neste avganger</div>
+                    <div id="entur-next-dep" class="value"></div>
+                    <!-- NB: Ikke egen actions-linje her lenger; knapper ligger per linje -->
+                </div>
+            </div>
+        </section>
     </div>
-  </div>
-</section></div>
     <!-- AIS-seksjon -->
     <section id="ais-section" aria-labelledby="ais-heading">
-      <div class="ais-card">
-        <header>
-          <h2 id="ais-heading">Båter i nærheten</h2>
-          <div class="meta"><span id="ais-count">0</span> funnet <span class="dot">•</span> <span id="ais-updated">oppdaterer…</span></div>
-        </header>
-        <div id="ais-table-wrap">
-          <table id="ais-table">
-            <thead>
-              <tr>
-                <th>Båtnavn</th>
-                <th>Hastighet (kn)</th>
-                <th>Retning</th>
-                <th>Kallesignal</th>
-                <th>Destinasjon</th>
-                <th>Avstand (nm)</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+        <div class="ais-card">
+            <header>
+                <h2 id="ais-heading">Båter i nærheten</h2>
+                <div class="meta"><span id="ais-count">0</span> funnet <span class="dot">•</span> <span
+                        id="ais-updated">oppdaterer…</span></div>
+            </header>
+            <div id="ais-table-wrap">
+                <table id="ais-table">
+                    <thead>
+                    <tr>
+                        <th>Båtnavn</th>
+                        <th>Hastighet (kn)</th>
+                        <th>Retning</th>
+                        <th>Kallesignal</th>
+                        <th>Destinasjon</th>
+                        <th>Avstand (nm)</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="ais-empty" class="empty" hidden>Ingen fartøy å vise akkurat nå.</div>
+            <div id="ais-error" class="error" hidden>Kunne ikke hente AIS-data.</div>
         </div>
-        <div id="ais-empty" class="empty" hidden>Ingen fartøy å vise akkurat nå.</div>
-        <div id="ais-error" class="error" hidden>Kunne ikke hente AIS-data.</div>
-      </div>
     </section>
 
     <!-- ADS-B seksjon (NY) i samme stil som AIS) -->
     <section id="adsb-section" aria-labelledby="adsb-heading">
-      <div class="ais-card">
-        <header>
-          <h2 id="adsb-heading">Fly i nærheten</h2>
-          <div class="meta"><span id="adsb-count">0</span> funnet <span class="dot">•</span> <span id="adsb-updated">oppdaterer…</span></div>
-        </header>
-        <div id="adsb-table-wrap">
-          <table id="adsb-table">
-            <thead>
-              <tr>
-                <th>Flight</th>
-                <th>Flyselskap</th>
-                <th>Høyde (ft)</th>
-                <th>Fart (kt)</th>
-                <th>Retning</th>
-                <th>Avstand (nm)</th>
-                <th>Sist sett</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+        <div class="ais-card">
+            <header>
+                <h2 id="adsb-heading">Fly i nærheten</h2>
+                <div class="meta"><span id="adsb-count">0</span> funnet <span class="dot">•</span> <span
+                        id="adsb-updated">oppdaterer…</span></div>
+            </header>
+            <div id="adsb-table-wrap">
+                <table id="adsb-table">
+                    <thead>
+                    <tr>
+                        <th>Flight</th>
+                        <th>Flyselskap</th>
+                        <th>Høyde (ft)</th>
+                        <th>Fart (kt)</th>
+                        <th>Retning</th>
+                        <th>Avstand (nm)</th>
+                        <th>Sist sett</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="adsb-empty" class="empty" hidden>Ingen fly å vise akkurat nå.</div>
+            <div id="adsb-error" class="error" hidden>Kunne ikke hente ADS-B-data.</div>
         </div>
-        <div id="adsb-empty" class="empty" hidden>Ingen fly å vise akkurat nå.</div>
-        <div id="adsb-error" class="error" hidden>Kunne ikke hente ADS-B-data.</div>
-      </div>
     </section>
 
     <div class="box">
-      <h2>Værstatistikk</h2>
-      <p id="updatedTxt" style="font-size:0.9em;color:#666;margin:0 0 10px 0;">Oppdaterer...</p>
-      <div style="margin-bottom:10px;">
-        <button data-range="6h">6h</button>
-        <button data-range="12h">12h</button>
-        <button data-range="24h" class="active">24h</button>
-        <button data-range="3d">3d</button>
-        <button data-range="7d">7d</button>
-      </div>
-      <div class="chart-box"><canvas id="tempChart"></canvas>
-      </div>
-      <div class="chart-box"><canvas id="windChart"></canvas>
-      </div>
+        <h2>Værstatistikk</h2>
+        <p id="updatedTxt" style="font-size:0.9em;color:#666;margin:0 0 10px 0;">Oppdaterer...</p>
+        <div style="margin-bottom:10px;">
+            <button data-range="6h">6h</button>
+            <button data-range="12h">12h</button>
+            <button data-range="24h" class="active">24h</button>
+            <button data-range="3d">3d</button>
+            <button data-range="7d">7d</button>
+        </div>
+        <div class="chart-box">
+            <canvas id="tempChart"></canvas>
+        </div>
+        <div class="chart-box">
+            <canvas id="windChart"></canvas>
+        </div>
     </div>
     <div id="ais-tooltip" hidden></div>
-  </div>
+</div>
 
-  <script>
-  // --- Hjelpere ---
-  const norm360 = d => ((d % 360) + 360) % 360;
-  const WIND_ARROW_MODE = 'to';
-  const IMG_URL = "siste.jpg";
-  const WEATHER_URL = "getweather_overlay.php";
-  const IMAGE_INTERVAL_MS = 20_000;
-  const WEATHER_INTERVAL_MS = 30_000;
-  const MOON_URL = "/met_moon_proxy.php?lat=64.33&lon=10.41";
-  const FORECAST_URL = "/met_forecast_proxy.php?lat=64.32785&lon=10.41549";
-  const ICON_BASE = "ikoner/yr/";
-  const YR_SYMBOL_MAP = { clearsky_day:'01d', clearsky_night:'01n', clearsky_polartwilight:'01m', fair_day:'02d', fair_night:'02n', fair_polartwilight:'02m', partlycloudy_day:'03d', partlycloudy_night:'03n', partlycloudy_polartwilight:'03m', cloudy:'04', lightrainshowers_day:'40d', lightrainshowers_night:'40n', lightrainshowers_polartwilight:'40m', rainshowers_day:'05d', rainshowers_night:'05n', rainshowers_polartwilight:'05m', heavyrainshowers_day:'41d', heavyrainshowers_night:'41n', heavyrainshowers_polartwilight:'41m', lightrainshowersandthunder_day:'24d', lightrainshowersandthunder_night:'24n', lightrainshowersandthunder_polartwilight:'24m', rainshowersandthunder_day:'06d', rainshowersandthunder_night:'06n', rainshowersandthunder_polartwilight:'06m', heavyrainshowersandthunder_day:'25d', heavyrainshowersandthunder_night:'25n', heavyrainshowersandthunder_polartwilight:'25m', lightsleetshowers_day:'42d', lightsleetshowers_night:'42n', lightsleetshowers_polartwilight:'42m', sleetshowers_day:'07d', sleetshowers_night:'07n', sleetshowers_polartwilight:'07m', heavysleetshowers_day:'43d', heavysleetshowers_night:'43n', heavysleetshowers_polartwilight:'43m', lightsleetshowersandthunder_day:'26d', lightsleetshowersandthunder_night:'26n', lightsleetshowersandthunder_polartwilight:'26m', sleetshowersandthunder_day:'20d', sleetshowersandthunder_night:'20n', sleetshowersandthunder_polartwilight:'20m', heavysleetshowersandthunder_day:'27d', heavysleetshowersandthunder_night:'27n', heavysleetshowersandthunder_polartwilight:'27m', lightsnowshowers_day:'44d', lightsnowshowers_night:'44n', lightsnowshowers_polartwilight:'44m', snowshowers_day:'08d', snowshowers_night:'08n', snowshowers_polartwilight:'08m', heavysnowshowers_day:'45d', heavysnowshowers_night:'45n', heavysnowshowers_polartwilight:'45m', lightsnowshowersandthunder_day:'28d', lightsnowshowersandthunder_night:'28n', lightsnowshowersandthunder_polartwilight:'28m', snowshowersandthunder_day:'21d', snowshowersandthunder_night:'21n', snowshowersandthunder_polartwilight:'21m', heavysnowshowersandthunder_day:'29d', heavysnowshowersandthunder_night:'29n', heavysnowshowersandthunder_polartwilight:'29m', lightrain:'46', rain:'09', heavyrain:'10', lightrainandthunder:'30', rainandthunder:'22', heavyrainandthunder:'11', lightsleet:'47', sleet:'12', heavysleet:'48', lightsleetandthunder:'31', sleetandthunder:'23', heavysleetandthunder:'32', lightsnow:'49', snow:'13', heavysnow:'50', lightsnowandthunder:'33', snowandthunder:'14', heavysnowandthunder:'34', fog:'15' };
-  const iconDefault = `${ICON_BASE}04.svg`;
 
-  const camImg = document.getElementById("cam");
-  const statusEl = document.getElementById("status");
-  const statusText = document.getElementById("statusText");
-  const overlayEl = document.getElementById("weatherOverlay");
-  const moonSvg = document.getElementById("moonSvg");
-  const moonText = document.getElementById("moonText");
-  const forecastHourlyEl = document.getElementById("forecastHourly");
+<!-- AIS-kode (uendret, men beholdt tooltip m.m.) -->
+<script src="js/ais-manager.js"></script>
 
-  let lastImageTs = 0, lastWeatherTs = 0, imageCaptureTs = 0;
-  const tzOslo = "Europe/Oslo";
-  const hourFmt = new Intl.DateTimeFormat('nb-NO', { hour:'2-digit', minute:'2-digit', timeZone: tzOslo, hour12:false });
-  const dayFmt  = new Intl.DateTimeFormat('nb-NO', { weekday:'short', day:'2-digit', timeZone: tzOslo });
-  function bust(url){ const u = new URL(url, location.href); u.searchParams.set("_", Date.now()); return u.toString(); }
+<!-- ADS-B: matchende tabellstil -->
+<script src="js/adsb-manager.js"></script>
 
-  // --- Bilde + status ---
-  function refreshImage(){
-    const img = new Image();
-    img.onload = async () => {
-      camImg.src = img.src;
-      lastImageTs = Date.now();
-      await updateImageCaptureTime();
-      updateStatus();
-    };
-    img.onerror = () => {};
-    img.src = bust(IMG_URL);
-  }
-  async function updateImageCaptureTime(){
-    try{
-      const res = await fetch('/image_metadata_proxy.php', {
-        method: 'GET',
-        cache: 'no-cache'
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.lastModified) {
-          const t = new Date(data.lastModified).getTime();
-          if (Number.isFinite(t)) {
-            imageCaptureTs = t;
-          }
-        }
-      }
-    }catch(e){
-      console.error("Could not fetch image metadata:", e);
-    }
-  }
-  function humanAge(ms){ const s = Math.max(0, Math.floor(ms/1000)); if (s<60) return `${s}s`; const m=Math.floor(s/60), r=s%60; if (m<60) return `${m}m ${r}s`; const h=Math.floor(m/60), mr=m%60; return `${h}t ${mr}m`; }
-  function updateStatus(){
-    // Only use imageCaptureTs if available, otherwise show loading state
-    if (!imageCaptureTs){
-      statusText.textContent = "Laster…";
-      statusEl.className = "status-pill warn";
-      return;
-    }
-    const ageSec = Math.floor((Date.now() - imageCaptureTs) / 1000);
-    statusEl.className = "status-pill " + (ageSec > 300 ? "bad" : ageSec > 120 ? "warn" : "ok");
-    statusText.textContent = `Bilde ${humanAge(Date.now() - imageCaptureTs)} gammelt`;
-  }
-
-  // --- Væroverlay ---
-  function renderWeather(data){ overlayEl.innerHTML = ""; const wrap=(title,lines)=>{ const section=document.createElement("section"); if(title){ const h=document.createElement("h3"); h.textContent=title; section.appendChild(h); } if(Array.isArray(lines)&&lines.length){ const ul=document.createElement("ul"); for(const line of lines){ const li=document.createElement("li"); li.textContent=String(line); ul.appendChild(li);} section.appendChild(ul);} return section;}; const normalized=[]; if(Array.isArray(data)){ for(const entry of data){ if(entry&&typeof entry==="object"&&"data" in entry){ normalized.push({ title: entry.label||"", lines: Array.isArray(entry.data)?entry.data:[String(entry.data??"")] }); } else normalized.push({ title: "", lines:[String(entry)]}); } } else if (data&&typeof data==="object"&&"data" in data){ normalized.push({ title:data.label||"", lines:Array.isArray(data.data)?data.data:[String(data.data??"")]}); } else if (data!=null){ normalized.push({ title:"", lines:[String(data)]}); } for(const block of normalized){ overlayEl.appendChild(wrap(block.title, block.lines)); } overlayEl.hidden = overlayEl.childElementCount===0; }
-  async function fetchWeather(){ try{ const res=await fetch(bust(WEATHER_URL), { headers:{"Accept":"application/json"}, cache:"no-cache" }); const text=await res.text(); let json; try{ json=JSON.parse(text);}catch{ const cleaned=text.trim().replace(/^[\uFEFF]/, "").replace(/<\/?pre[^>]*>/gi, ""); json=JSON.parse(cleaned);} renderWeather(json); lastWeatherTs=Date.now(); updateStatus(); }catch(e){ console.error("Værfeil:", e); } }
-
-  // --- Måne ---
-  // Simplified client-side moon handling - backend now does the heavy lifting
-  async function fetchMoon(){
-    try{
-      const res = await fetch(MOON_URL, { cache:"no-cache" });
-      const data = await res.json();
-
-      // Use pre-calculated values from enhanced backend proxy
-      if (data.processed) {
-        moonSvg.innerHTML = data.processed.svg;
-        moonSvg.setAttribute("viewBox", "0 0 120 120");
-        moonText.textContent = data.processed.text;
-      } else {
-        // Minimal fallback for unexpected response format
-        moonText.textContent = "Kunne ikke behandle månedata";
-        console.warn("Moon proxy returned unexpected format:", data);
-      }
-    } catch(err) {
-      console.error("Moon API-feil:", err);
-      moonText.textContent = "Kunne ikke hente månefasen nå.";
-      // Simple fallback moon display
-      moonSvg.innerHTML = '<circle cx="60" cy="60" r="60" fill="#1e2228"/><circle cx="60" cy="60" r="59.4" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>';
-      moonSvg.setAttribute("viewBox", "0 0 120 120");
-    }
-  }
-
-  // --- Time-for-time ---
-  function iconForSymbol(symbol_code){ if(!symbol_code) return null; const id = YR_SYMBOL_MAP[symbol_code]; return id ? `${ICON_BASE}${id}.svg` : iconDefault; }
-  function pickHourlySymbol(item){ return item?.data?.next_1_hours?.summary?.symbol_code || item?.data?.next_6_hours?.summary?.symbol_code || item?.data?.next_12_hours?.summary?.symbol_code || null; }
-  function renderHourly(series){ const now=Date.now(); const upcoming=series.filter(it=>new Date(it.time).getTime()>=now); const cards=[]; for(let i=0;i<upcoming.length && cards.length<6;i+=4){ const it=upcoming[i]; const hasPeriod = it?.data?.next_1_hours || it?.data?.next_6_hours || it?.data?.next_12_hours; if(!hasPeriod) continue; const tUTC=new Date(it.time); const tLocal=new Date(tUTC.toLocaleString('en-US',{timeZone: tzOslo})); const timeLabel=hourFmt.format(tLocal); const T=it?.data?.instant?.details?.air_temperature; const tDisp=Number.isFinite(T)?`${Math.round(T)}°`:'–'; const p1=it?.data?.next_1_hours?.details?.precipitation_amount; const p6=it?.data?.next_6_hours?.details?.precipitation_amount; const p12=it?.data?.next_12_hours?.details?.precipitation_amount; const precip=(p1 ?? p6 ?? p12 ?? 0); const pDisp=`${(+precip).toFixed(1)} mm`; const d=it?.data?.instant?.details || {}; const wind=d.wind_speed; const gust=d.wind_speed_of_gust; const windFrom=d.wind_from_direction; const bf=(function(ms){ const b = ms<0.5?0: ms<1.6?1: ms<3.4?2: ms<5.5?3: ms<8.0?4: ms<10.8?5: ms<13.9?6: ms<17.2?7: ms<20.8?8: ms<24.5?9: ms<28.5?10:ms<32.7?11:12; const txt=["stille","flau vind","svak vind","lett bris","laber bris","frisk bris","liten kuling","stiv kuling","sterk kuling","liten storm","full storm","sterk storm","orkan"][b]; return {bft:b, txt};})(wind ?? -1); let bearing=null; if (windFrom!=null){ bearing=(WIND_ARROW_MODE==='from')?windFrom:norm360(windFrom+180);} const rot=(bearing==null)?null:norm360(bearing-90); const arrow = (Number.isFinite(wind) && Number.isFinite(windFrom)) ? window.windBarbSVG(wind, windFrom) : ""; const windTxt=(wind==null)?"– m/s":`${Math.round(wind)} m/s${gust?` (kast ${Math.round(gust)})`:""}${Number.isFinite(wind)?` – ${bf.txt}`:""}`; const sym=pickHourlySymbol(it); const iconPath=iconForSymbol(sym); cards.push({ timeLabel, tDisp, pDisp, windTxt, arrow, iconPath, sym }); }
-    forecastHourlyEl.innerHTML='';
-    for(const c of cards){ const el=document.createElement('div'); el.className='fcH-card'; el.innerHTML=`<div class="fcH-time">${c.timeLabel}</div><div class="fcH-icon">${c.iconPath?`<img src="${c.iconPath}" alt="${c.sym}" onerror="this.onerror=null;this.src='${ICON_BASE}04.svg';this.alt='cloudy';">`:'—'}</div><div class="fcH-t">${c.tDisp}</div><div class="fcH-mm">${c.pDisp}</div><div class="fcH-wind">${c.windTxt} ${c.arrow}</div>`; forecastHourlyEl.appendChild(el);} }
-  async function loadForecastHourly(){ try{ const res=await fetch(FORECAST_URL,{cache:'no-cache'}); const raw=await res.text(); if(!res.ok){ console.error('Forecast HTTP',res.status,raw.slice(0,200)); forecastHourlyEl.textContent='Kunne ikke hente varsel.'; return;} let json; try{ json=JSON.parse(raw);}catch(e){ console.error('Forecast JSON',e,raw.slice(0,200)); forecastHourlyEl.textContent='Ugyldig varseldata.'; return;} const series=json?.properties?.timeseries||[]; if(!series.length){ forecastHourlyEl.textContent='Ingen varseldata.'; return;} renderHourly(series);}catch(e){ console.error('Forecast error',e); forecastHourlyEl.textContent='Kunne ikke hente varsel.'; } }
-
-  // --- Soloppgang/solnedgang ---
-  const SUNRISE_URL = "/sunrise_proxy.php?type=all-events";
-  const nextSunEventEl = document.getElementById("nextSunEvent");
-
-  function formatAllSolarEvents(data) {
-    if (!data || data.status !== 'success') {
-      return '<div class="sun-error">Kunne ikke hente soldata</div>';
-    }
-
-    const events = data.events || [];
-
-    if (events.length === 0) {
-      return '<div class="sun-none">Ingen solhendelser neste 24t</div>';
-    }
-
-    // Create HTML for all events with horizontal layout for larger screens
-    let html = '';
-    events.forEach((event, index) => {
-      html += `
-        <div class="sun-event-item ${index === 0 ? 'sun-event-next' : ''}">
-          <div class="sun-event-type">${event.label}<img src="${event.icon}"/></div>
-          <div class="sun-event-time">${event.dayLabel} ${event.time}</div>
-        </div>
-      `;
-    });
-
-    return `<div class="sun-events-list">${html}</div>`;
-  }
-
-  async function loadSunriseSunset() {
-    try {
-      const res = await fetch(SUNRISE_URL, { cache: 'no-cache' });
-      const data = await res.json();
-
-      if (!res.ok) {
-        console.error('Sunrise HTTP', res.status, data);
-        nextSunEventEl.innerHTML = '<div class="sun-error">Kunne ikke hente soldata</div>';
-        return;
-      }
-
-      nextSunEventEl.innerHTML = formatAllSolarEvents(data);
-    } catch (e) {
-      console.error('Sunrise error', e);
-      nextSunEventEl.innerHTML = '<div class="sun-error">Kunne ikke hente soldata</div>';
-    }
-  }
-
-  // --- Init ---
-  refreshImage(); fetchWeather(); fetchMoon(); loadForecastHourly(); loadSunriseSunset(); updateStatus();
-  const imgTimer=setInterval(refreshImage, IMAGE_INTERVAL_MS);
-  const weatherTimer=setInterval(fetchWeather, WEATHER_INTERVAL_MS);
-  const statusTimer=setInterval(updateStatus, 1000);
-  const moonTimer=setInterval(fetchMoon, 15*60_000);
-  const fcTimer=setInterval(loadForecastHourly, 30*60_000);
-  const sunTimer=setInterval(loadSunriseSunset, 30*60_000);
-  window.addEventListener("focus", ()=>{ refreshImage(); fetchWeather(); fetchMoon(); loadForecastHourly(); loadSunriseSunset(); });
-  window.addEventListener("beforeunload", ()=>{ clearInterval(imgTimer); clearInterval(weatherTimer); clearInterval(statusTimer); clearInterval(moonTimer); clearInterval(fcTimer); clearInterval(sunTimer); });
-  </script>
-
-  <!-- AIS-kode (uendret, men beholdt tooltip m.m.) -->
-  <script>
-  (function(){
-    const ENDPOINT   = "getaislist.php";
-    const REFRESH_MS = 20_000;
-    const $tbody   = () => document.querySelector("#ais-table tbody");
-    const $count   = () => document.getElementById("ais-count");
-    const $updated = () => document.getElementById("ais-updated");
-    const $empty   = () => document.getElementById("ais-empty");
-    const $error   = () => document.getElementById("ais-error");
-    const $wrap    = () => document.getElementById("ais-table-wrap");
-    const $tooltip = () => window.__ensureTooltip();
-    function fmtUpdated(date=new Date()){ const pad=n=>String(n).padStart(2,"0"); return `${pad(date.getHours())}:${pad(date.getMinutes())}`; }
-    function makeTooltipText(v){ const dpg=(v.draught_dm!=null)?(Number(v.draught_dm)/10).toFixed(1)+" m":"–"; const spd=(typeof v.spd_kn==="number")?v.spd_kn.toFixed(1)+" kn":"–"; const cog=(v.cog_deg!=null)?v.cog_deg+"°":"–"; const hdg=(v.hdg_deg!=null)?v.hdg_deg+"°":"–"; const nm=(typeof v.dist_nm==="number")?v.dist_nm.toFixed(1)+" nm":"–"; return `Navn: ${v.name?.trim()||"–"}\nMMSI: ${v.mmsi||"–"}\nKallesignal: ${v.callsign||"–"}\nDestinasjon: ${v.dest||"–"}\nETA: ${v.eta||"–"}\nDypgang: ${dpg}\nKurs: ${cog} / Heading: ${hdg}\nFart: ${spd}\nAvstand: ${nm}\nSist oppdatert: ${v.tid||"–"}`; }
-    
-// Ikon og lenkebygger for MarineTraffic
-    const ICON_SHIP = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.59 13.41L12 10 3.41 13.41 2 12l10-4 10 4-1.41 1.41zM4 16c1.1 0 2 .9 2 2h12a2 2 0 114 0h-2a2 2 0 10-4 0H8a2 2 0 10-4 0H2a2 2 0 110-4h2z"/></svg>`;
-    function marineTrafficUrl(mmsi){
-      if(!mmsi) return null;
-      return `https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}`;
-    }
-
-    function renderRows(vessels){ const tb=$tbody(); const tooltip=$tooltip(); tb.innerHTML=""; vessels.forEach(v=>{ const tr=document.createElement("tr"); tr.addEventListener("click", ()=>{ window.open("https://ramsoy.iship.no", "_blank", "noopener"); }); tr.addEventListener("mouseenter", e=>{ tooltip.textContent=makeTooltipText(v);
-          tooltip.style.display='block'; tooltip.style.visibility='visible';
-          window.__positionTooltip(e, tooltip); }); tr.addEventListener("mousemove", e=>{ window.__positionTooltip(e, tooltip); }); tr.addEventListener("mouseleave", ()=>{ tooltip.style.visibility=''; tooltip.style.display='none'; }); const tdName=document.createElement("td"); tdName.textContent=(v.name&&String(v.name).trim())||"–"; tr.appendChild(tdName); const tdSpd=document.createElement("td"); tdSpd.textContent=(typeof v.spd_kn==="number")?v.spd_kn.toFixed(1):"–"; tr.appendChild(tdSpd); const tdCog=document.createElement("td"); const rawCog=(v.cog??v.cog_deg); const numCog=Number(rawCog); if(Number.isFinite(numCog)){ let cog=((numCog%360)+360)%360;
-      cog = Math.round(cog);
-      const rot=((cog-90)%360+360)%360; tdCog.innerHTML = `<span class="cog-wrap"><svg class="cog-arrow" viewBox="0 0 48 48" aria-label="Kurs ${cog}°"><g class="outline"><line x1="8" y1="24" x2="32" y2="24"></line></g><line class="shaft" x1="8" y1="24" x2="32" y2="24"></line><polygon class="head" points="32,16 44,24 32,32 34,24"></polygon></svg><span class="cog-text">${cog}°</span></span>`; tdCog.querySelector('.cog-arrow').style.transform=`rotate(${rot}deg)`; } else { tdCog.textContent="–"; } tr.appendChild(tdCog); const tdCall=document.createElement("td"); tdCall.textContent=(v.callsign&&String(v.callsign).trim())||"–"; tr.appendChild(tdCall); const tdDest=document.createElement("td"); tdDest.textContent=(v.dest&&String(v.dest).trim())||"–"; tr.appendChild(tdDest); const tdDist=document.createElement("td"); tdDist.textContent=(typeof v.dist_nm==="number")?v.dist_nm.toFixed(1):"–"; tr.appendChild(tdDist);
-      const tdAct=document.createElement('td'); tdAct.className='row-actions';
-      if(v.mmsi){ const a=document.createElement('a'); a.className='iconbtn'; a.href=marineTrafficUrl(v.mmsi); a.target='_blank'; a.rel='noopener'; a.title='Åpne i MarineTraffic'; a.innerHTML=ICON_SHIP; a.addEventListener('click', ev=>ev.stopPropagation()); tdAct.appendChild(a); }
-      tr.appendChild(tdAct);
-      tb.appendChild(tr); }); document.getElementById("ais-table").addEventListener("mouseleave", ()=>{ $tooltip().hidden=true; }, { once:true }); window.addEventListener("scroll", ()=>{ $tooltip().hidden=true; }, { passive:true }); }
-    async function loadAis(){ try{ $error().hidden=true; const res=await fetch(ENDPOINT, { cache:"no-store" }); if(!res.ok) throw new Error(`HTTP ${res.status}`); const data=await res.json(); const vessels=Array.isArray(data?.vessels)?data.vessels:[]; const hasRows=vessels.length>0; $wrap().hidden=!hasRows; $empty().hidden=hasRows; renderRows(vessels); $count().textContent=vessels.length; $updated().textContent=`oppdatert ${fmtUpdated()}`; }catch(err){ console.error("AIS feil:", err); $error().hidden=false; $updated().textContent="feil ved oppdatering"; } }
-    loadAis(); setInterval(loadAis, REFRESH_MS);
-  })();
-  </script>
-
-  <!-- ADS-B: matchende tabellstil -->
-  <script>
-  (function(){
-    const ORIGIN = { lat: 64.3278592, lon: 10.4155161 }; // Ramsøyvika
-    const MAX_DIST_KM = 100;   // radius
-    const MAX_SEEN_S  = 60;    // nylig sett
-
-    const $tbody   = () => document.querySelector('#adsb-table tbody');
-    const $wrap    = () => document.getElementById('adsb-table-wrap');
-    const $empty   = () => document.getElementById('adsb-empty');
-    const $error   = () => document.getElementById('adsb-error');
-    const $count   = () => document.getElementById('adsb-count');
-    const $updated = () => document.getElementById('adsb-updated');
-    const $tooltip = () => window.__ensureTooltip();
-
-    
-function fmt(val, suffix=''){
-      return (val==null || Number.isNaN(Number(val))) ? '–' : `${val}${suffix}`;
-    }
-    function fmtFt(val){ return (val==null||isNaN(val))?'–': `${Math.round(val)} ft`; }
-    function fmtFpm(val){ return (val==null||isNaN(val))?'–': `${Math.round(val)} ft/min`; }
-    function fmtKt(val){ return (val==null||isNaN(val))?'–': `${Math.round(val)} kt`; }
-    function fmtDeg(val){ return (val==null||isNaN(val))?'–': `${Math.round(((val%360)+360)%360)}°`; }
-
-    function makeAdsbTooltip(a){
-      const lines = [];
-      const flight = (a.flight||'').trim() || a.hex || '–';
-      const reg = a.r || a.reg || '–';
-      const type = a.t || a.type || '–';
-      const squawk = a.squawk || '–';
-      const alt = fmtFt(a.alt_baro);
-      const vr = fmtFpm(a.baro_rate ?? a.vert_rate);
-      const gs = fmtKt(a.gs);
-      const trk = fmtDeg(a.track);
-      const dist = (a.distance_nm!=null) ? (a.distance_nm<1 ? `${(a.distance_nm*1000/1.852|0)} m` : `${a.distance_nm.toFixed(1)} nm`) : '–';
-      const seen = (a.seen!=null) ? `${a.seen.toFixed(1)} s` : '–';
-      const airline = a.airline || '–';
-      lines.push(`Flight: ${flight}`);
-      lines.push(`Flyselskap: ${airline}`);
-      lines.push(`ICAO: ${a.hex || '–'}`);
-      lines.push(`Reg: ${reg}`);
-      lines.push(`Type: ${type}`);
-      lines.push(`Squawk: ${squawk}`);
-      lines.push(`Høyde: ${alt}`);
-      lines.push(`Stige/synk: ${vr}`);
-      lines.push(`Fart: ${gs}`);
-      lines.push(`Retning: ${trk}`);
-      lines.push(`Avstand: ${dist}`);
-      lines.push(`Sist sett: ${seen}`);
-      lines.push('\nSøk: åpne i Google (Ctrl/⌘-klikk)');
-      return lines.join('\n');
-    }
-
-    const fmtGs = kt => kt==null?'—': Math.round(kt)+' kt';
-    const fmtNm = nm => nm<1? (nm*1000/1.852|0)+' m' : nm.toFixed(1)+' nm';
-    const fmtSeen = s => s==null?'—': s.toFixed(1)+' s';
-    // Ikoner (inline SVG)
-    const ICON_SEARCH = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4z"/></svg>`;
-
-    function fmtAlt(ft){ if(ft==null) return '—'; if(typeof ft==='string') return ft; return Math.round(ft).toLocaleString('no-NO')+' ft'; }
-
-    function fr24FlightUrl(flight){
-      return 'https://www.flightradar24.com/64.32,10.41/8';
-    }
-
-    function googleFlightUrl(flight){
-      return `https://www.google.com/search?q=${encodeURIComponent(flight + ' flight')}`;
-    }
-
-    // Fetch aircraft data from server-side proxy
-    async function fetchAircraft(){
-      const url = `/adsb_proxy.php?lat=${ORIGIN.lat}&lon=${ORIGIN.lon}&radius=${MAX_DIST_KM}&max_age=${MAX_SEEN_S}`;
-      const res = await fetch(url, { cache: 'no-store' });
-      if(!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'Server error');
-      return data;
-    }
-
-    function makeHeadingCell(track){ const td=document.createElement('td'); const n=Number(track); if(Number.isFinite(n)){ let hdg=((n%360)+360)%360;
-      hdg = Math.round(hdg);
-      const rot=((hdg-90)%360+360)%360; td.innerHTML = `<span class="cog-wrap"><svg class="cog-arrow" viewBox="0 0 48 48" aria-label="Retning ${hdg}°"><g class="outline"><line x1="8" y1="24" x2="32" y2="24"></line></g><line class="shaft" x1="8" y1="24" x2="32" y2="24"></line><polygon class="head" points="32,16 44,24 32,32 34,24"></polygon></svg><span class="cog-text">${hdg}°</span></span>`; td.querySelector('.cog-arrow').style.transform=`rotate(${rot}deg)`; } else { td.textContent='—'; } return td; }
-
-    function render(rows){ const tb=$tbody(); tb.innerHTML=''; rows.forEach(a=>{ const tr=document.createElement('tr');
-      tr.addEventListener('mouseenter', e=>{ const t=$tooltip(); t.textContent=makeAdsbTooltip(a);
-      t.style.display='block'; t.style.visibility='visible';
-      window.__positionTooltip(e, t); });
-      tr.addEventListener('mousemove', e=>{ const t=$tooltip(); window.__positionTooltip(e, t); });
-      tr.addEventListener('mouseleave', ()=>{ const t=$tooltip(); t.style.visibility=''; t.style.display='none'; });
-      const flight=(a.flight||'').trim() || (a.t||a.hex||'—');
-      const tdF=document.createElement('td'); tdF.textContent=flight; tr.appendChild(tdF);
-      const airline = a.airline || '—';
-      const tdAir=document.createElement('td'); tdAir.textContent=airline; tr.appendChild(tdAir);
-      const tdAlt=document.createElement('td'); tdAlt.textContent=fmtAlt(a.alt_baro); tr.appendChild(tdAlt);
-      const tdSpd=document.createElement('td'); tdSpd.textContent=fmtGs(a.gs); tr.appendChild(tdSpd);
-      tr.appendChild(makeHeadingCell(a.track));
-      const tdDist=document.createElement('td'); tdDist.textContent= a.distance_nm!=null ? fmtNm(a.distance_nm) : '—'; tr.appendChild(tdDist);
-      const tdSeen=document.createElement('td'); tdSeen.textContent=fmtSeen(a.seen); tr.appendChild(tdSeen);
-      const tdAct=document.createElement('td'); tdAct.className='row-actions';
-      const btn = document.createElement('a'); btn.className='iconbtn'; btn.href=fr24FlightUrl(flight); btn.target='_blank'; btn.rel='noopener'; btn.title='Åpne i Flightradar24'; btn.innerHTML=ICON_SEARCH; btn.addEventListener('click', ev=>ev.stopPropagation()); tdAct.appendChild(btn); tr.appendChild(tdAct);
-      
-      // Ctrl/Meta-klikk på raden åpner Google-søk for flighten i ny fane
-      tr.addEventListener('click', (ev)=>{ if(ev.ctrlKey || ev.metaKey){ const url=googleFlightUrl(flight); window.open(url, '_blank', 'noopener'); } });
-      tb.appendChild(tr);
-    }); }
-
-    function fmtUpdated(date=new Date()){ const pad=n=>String(n).padStart(2,'0'); return `${pad(date.getHours())}:${pad(date.getMinutes())}`; }
-
-    
-    async function tick(){
-      try{
-        $error().hidden=true;
-        const data = await fetchAircraft();
-        const list = data.aircraft || [];
-
-        const hasRows = list.length>0;
-        $wrap().hidden = !hasRows;
-        $empty().hidden = hasRows;
-        render(list);
-        $count().textContent = list.length;
-        $updated().textContent = `oppdatert ${fmtUpdated()}`;
-        }catch(err){
-        console.error('ADS-B feil:', err);
-        $error().hidden=false;
-        $updated().textContent='feil ved oppdatering';
-      }
-    }
-
-    tick();
-    setInterval(tick, 20000); // Update every 20 seconds
-  })();
-  </script>
-
-  <!-- Flo & fjære (uendret funksjonelt) -->
-  <script>
-  (function(){
-    const LAT = 64.3278592, LON = 10.4155161;
-    function isoLocal(d){ const p=new Intl.DateTimeFormat('en-GB',{ timeZone:'Europe/Oslo', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false }).formatToParts(d); const g=t=>p.find(x=>x.type===t).value; return `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}`; }
-    function norskType(t){ if(!t) return ""; const key=String(t).toLowerCase(); if(key==='high'||key==='flo'||key==='highwater') return 'Flo'; if(key==='low'||key==='fjære'||key==='lowwater') return 'Fjære'; return key; }
-    const fmtTid=d=> d.toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}); const fmtM=cm=> (cm/100).toFixed(2)+' m';
-    async function hentToNeste(){ const now=new Date(); const to=new Date(now.getTime()+72*60*60*1000); const url=new URL('https://vannstand.kartverket.no/tideapi.php'); url.search=new URLSearchParams({ tide_request:'locationdata', lat:String(LAT), lon:String(LON), datatype:'tab', refcode:'cd', lang:'nb', fromtime: isoLocal(now), totime: isoLocal(to), tzone:'1', dst:'1' }).toString(); const res=await fetch(url,{cache:'no-store'}); const xml=await res.text(); const doc=new DOMParser().parseFromString(xml,'text/xml'); const items=Array.from(doc.querySelectorAll('waterlevel')).slice(0,2).map(el=>({ type: el.getAttribute('type') ?? el.getAttribute('flag') ?? el.getAttribute('kind') ?? el.getAttribute('tide'), time: new Date(el.getAttribute('time')), cm: Number(el.getAttribute('value')) })); const [a,b]=items; const el1=document.getElementById('tideNext1'); const el2=document.getElementById('tideNext2'); if(a) el1.textContent = `${norskType(a.type)}${a.type?" ":""}${fmtTid(a.time)} (${fmtM(a.cm)})`; else el1.textContent='—'; if(b) el2.textContent = `${norskType(b.type)}${b.type?" ":""}${fmtTid(b.time)} (${fmtM(b.cm)})`; else el2.textContent='—'; }
-    hentToNeste(); setInterval(hentToNeste, 30*60*1000);
-  })();
-  </script>
-
-  <!-- Entur backend service integration -->
-  <script>
-  (function(){
-      const API_URL = 'entur_api.php';
-      const depEl = document.getElementById("entur-next-dep");
-      const updEl = document.getElementById("entur-updated");
-
-      const ICON_PIN = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/></svg>`;
-
-      function formatTime(isoString) {
-          if (!isoString) return '—';
-          const depTime = new Date(isoString);
-          const now = new Date();
-          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-          const depDate = new Date(depTime.getFullYear(), depTime.getMonth(), depTime.getDate());
-
-          const timeStr = new Intl.DateTimeFormat('nb-NO', {
-              hour: '2-digit',
-              minute: '2-digit',
-              timeZone: 'Europe/Oslo'
-          }).format(depTime);
-
-          if (depDate.getTime() === today.getTime()) {
-              return timeStr;
-          } else if (depDate.getTime() === tomorrow.getTime()) {
-              return timeStr + ' <span class="badge-tomorrow">(i morgen)</span>';
-          } else {
-              const dayStr = new Intl.DateTimeFormat('nb-NO', {
-                  weekday: 'short',
-                  day: 'numeric',
-                  timeZone: 'Europe/Oslo'
-              }).format(depTime);
-              return timeStr + ' <span class="badge-tomorrow">(' + dayStr + ')</span>';
-          }
-      }
-
-      function renderBidirectionalDepartures(data) {
-          <!--console.log('Rendering Entur departures:', data);-->
-
-          const { bidirectionalDepartures, stopRamsoyUrl, stopSandviksUrl } = data;
-
-          if (!bidirectionalDepartures || bidirectionalDepartures.length === 0) {
-              depEl.innerHTML = '<div>Ingen avganger funnet</div>';
-              return;
-          }
-
-          let html = '';
-
-          bidirectionalDepartures.forEach(item => {
-              const dep = item.departure;
-              const direction = item.direction;
-              const isVerified = item.verified;
-              const isFallback = item.isFallback || false;
-
-              // Fix: Handle both "Ramsøy" and "Ramsy" (typo in API response)
-              const isFromRamsoy = direction.includes('Ramsy →') || direction.includes('Ramsøy →');
-              const stopUrl = isFromRamsoy ? stopRamsoyUrl : stopSandviksUrl;
-              const actionBtn = `<a class="iconbtn" href="${stopUrl}" target="_blank" rel="noopener" title="Åpne i Entur – ${direction}">${ICON_PIN}</a>`;
-
-              // Format departure time
-              const depTimeFormatted = formatTime(dep.time);
-
-              // Format on-time status with enhanced logic
-              let onTimeStatus = '';
-              if (dep.onTimeStatus) {
-                  onTimeStatus = ` (${dep.onTimeStatus})`;
-              }
-
-              // Format arrival info with verification status
-              let arrivalInfo = '';
-              if (dep.arrivalTime && dep.arrivalTime !== dep.time) {
-                  const arrivalTimeFormatted = formatTime(dep.arrivalTime);
-                  // Extract destination from direction for arrival info
-                  const destination = direction.includes('Sandviksberget') ? 'Sandviksberget' : 'Ramsøy';
-                  arrivalInfo = ` • Ankomst ${destination} ${arrivalTimeFormatted}`;
-              }
-
-              // Add fallback note if this is unverified route data
-              let fallbackNote = '';
-              if (isFallback && !isVerified) {
-                  const tooltip = 'title="Entur mangler informasjon om mellomstopp, så anløpet kan ikke bekreftes."';
-                  fallbackNote = ` • <span ${tooltip}>anløp ikke bekreftet</span>`;
-              }
-
-              // Build the complete line with enhanced status information
-              html += `<div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin: 0.4rem 0px;">`;
-              html += `<span><strong style="color:#a9b3bd;font-weight:600;margin-right:.3rem;">${direction}:</strong> ${depTimeFormatted} – ${dep.destination}${onTimeStatus}${arrivalInfo}${fallbackNote}</span>`;
-              html += `<div class="row-actions">${actionBtn}</div>`;
-              html += `</div>`;
-          });
-
-          <!--console.log('Generated HTML:', html);-->
-          depEl.innerHTML = html;
-      }
-
-      async function updateEntur(){
-          try {
-              <!--console.log('Starting Entur update...');-->
-              updEl.textContent = "oppdaterer…";
-
-              const url = `${API_URL}?bidirectional=true&_=${Date.now()}`;
-              <!--console.log('Fetching Entur data from:', url);-->
-
-              const response = await fetch(url);
-              if (!response.ok) {
-                  throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-              }
-
-              const result = await response.json();
-              <!--console.log('Entur API response:', result);-->
-
-              if (result.success) {
-                  renderBidirectionalDepartures(result.data);
-                  updEl.textContent = `oppdatert ${result.updated}`;
-                  <!--console.log('Entur update successful');-->
-              } else {
-                  throw new Error(result.error || 'Ukjent feil fra API');
-              }
-          } catch (error) {
-              console.error('Entur frontend error:', error);
-              depEl.innerHTML = '<div style="color: #ffb3b3;">Kunne ikke hente avganger: ' + error.message + '</div>';
-              updEl.textContent = "feil ved oppdatering";
-          }
-      }
-
-      // Load initially and set up refresh
-      <!--console.log('Initializing Entur integration...');-->
-      updateEntur();
-      setInterval(updateEntur, 60_000); // Refresh every minute
-  })();
-  </script>
+<!-- Flo & fjære (uendret funksjonelt) -->
+<script src="js/tidal-manager.js"></script>
+<!-- Entur backend service integration -->
+<script src="js/entur-manager.js"></script>
 
 <!-- Script for grafene -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
-  <script>
-(() => {
-  Chart.defaults.devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+<script src="js/chart-manager.js">
 
-  const ENDPOINT = '/verdata_split.php';
-  const TZ = 'Europe/Oslo';
-  const updatedEl = document.getElementById('updatedTxt');
-  const rangeButtons = Array.from(document.querySelectorAll('button[data-range]'));
-
-  function intervalFor(range){
-    if (range.endsWith('h')) {
-      const h = parseInt(range,10);
-      if (h <= 6)  return '5m';
-      if (h <= 12) return '10m';
-      return '10m';
-    }
-    if (range.endsWith('d')) {
-      const d = parseInt(range,10);
-      if (d <= 3)  return '30m';
-      if (d <= 7)  return '1h';
-      return '3h';
-    }
-    return '10m';
-  }
-  function buildURL(range, interval){
-    const p = new URLSearchParams({ range, interval, agg: 'avg', tz: TZ, use_cte: '0' });
-    return `${ENDPOINT}?${p.toString()}`;
-  }
-  function downsample(points, maxN=4000){
-    const n = points.length;
-    if (n <= maxN) return points;
-    const step = Math.ceil(n / maxN);
-    const out = [];
-    for (let i=0;i<n;i+=step) out.push(points[i]);
-    return out;
-  }
-  const makeXY = (rows, key) =>
-    rows.map(r => {
-      const y = r[key];
-      return { x: new Date(r.t.replace(' ', 'T')), y: (y==null ? null : Number(y)) };
-    });
-
-  async function fetchSeries(range){
-    const interval = intervalFor(range);
-    const url = buildURL(range, interval);
-    const t0 = performance.now();
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const { rows=[] } = await res.json();
-
-    let tempBrygga = makeXY(rows, 'temp_brygga');
-    let tempLia    = makeXY(rows, 'temp_lia');
-    let wtempSjo   = makeXY(rows, 'wtemp_sjo');
-
-    let windBrygga = makeXY(rows, 'wind_brygga');
-    let gustBrygga = makeXY(rows, 'gust_brygga');
-    let windLia    = makeXY(rows, 'wind_lia');
-    let gustLia    = makeXY(rows, 'gust_lia');
-
-    tempBrygga = downsample(tempBrygga);
-    tempLia    = downsample(tempLia);
-    wtempSjo   = downsample(wtempSjo);
-    windBrygga = downsample(windBrygga);
-    gustBrygga = downsample(gustBrygga);
-    windLia    = downsample(windLia);
-    gustLia    = downsample(gustLia);
-
-    const ms = Math.round(performance.now() - t0);
-    updatedEl.textContent = `Oppdatert ${new Date().toLocaleTimeString('nb-NO')} • ${range} @ ${interval} • ${ms} ms`;
-
-    return { tempBrygga, tempLia, wtempSjo, windBrygga, gustBrygga, windLia, gustLia };
-  }
-
-  const timeScale = {
-    type: 'time',
-    time: { unit: 'minute', tooltipFormat: 'dd.MM HH:mm', displayFormats: { minute:'HH:mm', hour:'HH:mm', day:'dd.MM' } },
-    ticks: { maxRotation: 0, autoSkipPadding: 24 }
-  };
-  const commonOpts = {
-    responsive: true,
-    maintainAspectRatio: false,
-    parsing: true,
-    normalized: true,
-    animation: false,
-    spanGaps: true,
-    plugins: {
-      legend: { display: true },
-      decimation: { enabled: true, algorithm: 'lttb' },
-      tooltip: { mode: 'index', intersect: false }
-    },
-    scales: { x: timeScale, y: { beginAtZero: false } }
-  };
-
-  const tempChart = new Chart(document.getElementById('tempChart').getContext('2d'), {
-    type: 'line',
-    data: { datasets: [
-      { label: 'Brygga (°C)',    data: [], borderWidth: 2, pointRadius: 0, tension: 0.25 },
-      { label: 'Liafjellet (°C)',data: [], borderWidth: 2, pointRadius: 0, tension: 0.25 },
-      { label: 'Sjøtemp (°C)',   data: [], borderWidth: 2, pointRadius: 0, tension: 0.25, borderDash:[4,3] }
-    ]},
-    options: {
-      ...commonOpts,
-      plugins: {
-        ...commonOpts.plugins,
-        tooltip: { ...commonOpts.plugins.tooltip,
-          callbacks: { label: (ctx)=>`${ctx.dataset.label}: ${ctx.parsed.y?.toFixed?.(1) ?? '—'} °C` }
-        }
-      }
-    }
-  });
-
-  const windChart = new Chart(document.getElementById('windChart').getContext('2d'), {
-    type: 'line',
-    data: { datasets: [
-      { label: 'Vind Brygga (m/s)', data: [], borderWidth: 2, pointRadius: 0, tension: 0.25 },
-      { label: 'Kast Brygga (m/s)', data: [], borderWidth: 2, pointRadius: 0, tension: 0.25, borderDash: [6,4] },
-      { label: 'Vind Lia (m/s)',    data: [], borderWidth: 2, pointRadius: 0, tension: 0.25 },
-      { label: 'Kast Lia (m/s)',    data: [], borderWidth: 2, pointRadius: 0, tension: 0.25, borderDash: [6,4] }
-    ]},
-    options: {
-      ...commonOpts,
-      scales: { x: timeScale, y: { beginAtZero: true, suggestedMax: 20 } },
-      plugins: {
-        ...commonOpts.plugins,
-        tooltip: { ...commonOpts.plugins.tooltip,
-          callbacks: { label: (ctx)=>`${ctx.dataset.label}: ${ctx.parsed.y?.toFixed?.(1) ?? '—'} m/s` }
-        }
-      }
-    }
-  });
-
-  async function render(range){
-    const s = await fetchSeries(range);
-    tempChart.data.datasets[0].data = s.tempBrygga;
-    tempChart.data.datasets[1].data = s.tempLia;
-    tempChart.data.datasets[2].data = s.wtempSjo;
-    tempChart.update('none');
-
-    windChart.data.datasets[0].data = s.windBrygga;
-    windChart.data.datasets[1].data = s.gustBrygga;
-    windChart.data.datasets[2].data = s.windLia;
-    windChart.data.datasets[3].data = s.gustLia;
-    windChart.update('none');
-  }
-
-  function setActive(range){
-    rangeButtons.forEach(b => b.classList.toggle('active', b.dataset.range === range));
-  }
-  rangeButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      currentRange = btn.dataset.range;
-      setActive(currentRange);
-      render(currentRange).catch(console.error);
-    });
-  });
-
-  let currentRange = '24h';
-  setActive(currentRange);
-  render(currentRange).catch(console.error);
-  setInterval(() => render(currentRange).catch(console.error), 60_000);
-})();
-  </script>
+</script>
 </body>
 </html>
