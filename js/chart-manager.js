@@ -3,6 +3,7 @@ import { CONFIG } from './constants.js';
 import { appState } from './state-manager.js';
 import { apiClient } from './api-client.js';
 import { UIComponents } from './ui-components.js';
+import { visibilityManager } from './visibility-manager.js';
 
 export class ChartManager {
     constructor() {
@@ -49,8 +50,16 @@ export class ChartManager {
         this.setupCharts();
         this.setupEventListeners();
         this.setActive(this.currentRange);
-        this.render(this.currentRange);
-        setInterval(() => this.render(this.currentRange), this.refreshMs);
+
+        // Initial load
+        this.loadChartData();
+
+        // Setup visibility-aware interval for chart data updates
+        visibilityManager.setInterval('charts',
+            () => this.loadChartData(),
+            this.refreshMs,
+            2 // 2x slower when hidden (1min -> 2min) - statistical data changes slowly
+        );
     }
 
     intervalFor(range) {

@@ -4,6 +4,7 @@ import { ensureTooltip, positionTooltip } from './tooltip-helpers.js';
 import { appState } from './state-manager.js';
 import { apiClient } from './api-client.js';
 import { UIComponents } from './ui-components.js';
+import { visibilityManager } from './visibility-manager.js';
 
 export class AISManager {
     constructor() {
@@ -47,8 +48,15 @@ export class AISManager {
     }
 
     init() {
+        // Initial load
         this.loadAis();
-        setInterval(() => this.loadAis(), this.refreshMs);
+
+        // Setup visibility-aware interval for real-time vessel tracking
+        visibilityManager.setInterval('ais',
+            () => this.loadAis(),
+            this.refreshMs,
+            4 // 4x slower when hidden (20s -> 80s) - vessels move slowly
+        );
     }
 
     fmtUpdated(date = new Date()) {

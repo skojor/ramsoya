@@ -2,6 +2,7 @@
 import { CONFIG } from './constants.js';
 import { appState } from './state-manager.js';
 import { UIComponents } from './ui-components.js';
+import { visibilityManager } from './visibility-manager.js';
 
 export class TidalManager {
     constructor() {
@@ -45,8 +46,15 @@ export class TidalManager {
     }
 
     init() {
-        this.hentToNeste();
-        setInterval(() => this.hentToNeste(), this.refreshMs);
+        // Initial load
+        this.loadTidalData();
+
+        // Setup visibility-aware interval for tidal updates
+        visibilityManager.setInterval('tidal',
+            () => this.loadTidalData(),
+            this.refreshMs,
+            1.5 // 1.5x slower when hidden (30min -> 45min) - tidal changes are predictable
+        );
     }
 
     isoLocal(d) {
@@ -116,7 +124,7 @@ export class TidalManager {
         return url.toString();
     }
 
-    async hentToNeste() {
+    async loadTidalData() {
         try {
             const url = this.buildTidalUrl();
             console.log('Tidal: Fetching from URL:', url);

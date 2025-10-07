@@ -14,6 +14,8 @@ export class ApiClient {
             retryDelay: 1000, // 1 second
             retryOn: [408, 429, 500, 502, 503, 504]
         };
+        // Request deduplication map
+        this.pendingRequests = new Map();
     }
 
     /**
@@ -24,7 +26,43 @@ export class ApiClient {
      * @returns {Promise<any>} Parsed response data
      */
     async fetch(url, options = {}, loadingKey = null) {
+        const requestKey = this.getRequestKey(url, options);
+
+        // Return existing pending request if available
+        if (this.pendingRequests.has(requestKey)) {
+            console.log(`🔄 Deduplicating request to ${url}`);
+            return this.pendingRequests.get(requestKey);
+        }
+
         const mergedOptions = { ...this.defaultOptions, ...options };
+        let lastError = null;
+
+        // Create and store the promise
+        const fetchPromise = this.executeFetch(url, mergedOptions, loadingKey);
+        this.pendingRequests.set(requestKey, fetchPromise);
+
+        try {
+            const result = await fetchPromise;
+            return result;
+        } finally {
+            // Clean up the pending request
+            this.pendingRequests.delete(requestKey);
+        }
+    }
+
+    /**
+     * Generate a unique key for request deduplication
+     */
+    getRequestKey(url, options) {
+        const method = options.method || 'GET';
+        const body = options.body || '';
+        return `${method}:${url}:${typeof body === 'string' ? body : JSON.stringify(body)}`;
+    }
+
+    /**
+     * Execute the actual fetch with retries
+     */
+    async executeFetch(url, mergedOptions, loadingKey) {
         let lastError = null;
 
         // Set loading state

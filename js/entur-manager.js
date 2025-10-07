@@ -3,6 +3,7 @@ import { CONFIG } from './constants.js';
 import { appState } from './state-manager.js';
 import { apiClient } from './api-client.js';
 import { UIComponents } from './ui-components.js';
+import { visibilityManager } from './visibility-manager.js';
 
 export class EnturManager {
     constructor() {
@@ -45,9 +46,15 @@ export class EnturManager {
     }
 
     init() {
-        console.log('Initializing Entur integration...');
-        this.updateEntur();
-        setInterval(() => this.updateEntur(), this.refreshMs);
+        // Initial load
+        this.loadData();
+
+        // Setup visibility-aware interval for transport updates
+        visibilityManager.setInterval('entur',
+            () => this.loadData(),
+            this.refreshMs,
+            2 // 2x slower when hidden (1min -> 2min) - transport schedules change moderately
+        );
     }
 
     async updateEntur() {
