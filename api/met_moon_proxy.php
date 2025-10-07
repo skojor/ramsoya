@@ -3,7 +3,7 @@
 // Enhanced proxy for MET Norway Sunrise Moon API with server-side processing
 // © 2025 Skorstad Engineering AS
 
-require("../private/met_forecastcred.php");
+require("../../private/met_forecastcred.php");
 
 // Tillatte query-parametre (whitelist)
 $allowedParams = ['lat','lon','date','offset','elevation','day','to','lang'];
