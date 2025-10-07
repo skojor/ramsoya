@@ -9,7 +9,6 @@ export class ImageManager {
         this.statusEl = document.getElementById("status");
         this.statusText = document.getElementById("statusText");
         this.refreshMs = CONFIG.INTERVALS.IMAGE_REFRESH;
-        this.lastImageTs = 0;
         this.imageCaptureTs = 0;
 
         this.init();
@@ -38,7 +37,6 @@ export class ImageManager {
         const img = new Image();
         img.onload = async () => {
             this.imageEl.src = img.src;
-            this.lastImageTs = Date.now();
             await this.updateImageCaptureTime();
             this.updateStatus();
         };
