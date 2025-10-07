@@ -154,27 +154,28 @@
       <section class="forecastHourly compact">
         <div class="fcH-head"><div>Neste 24 timer</div><div class="fcH-note">Oppdateres hver 30. min</div></div>
         <div class="fcH-strip" id="forecastHourly" aria-live="polite"></div>
-          <!-- Solar events integrated below hourly forcast -->
-          <div class="fcH-solar" id="solarEvents" aria-live="polite">
-              <div class="fcH-solar-head">Soloppgang og solnedgang</div>
-              <div class="sun-events" id="nextSunEvent">
-                  <div class="sun-loading">Henter soldata...</div>
-              </div>
-          </div>
+
 
 
         </section>
 
       <section class="moon-card" id="moonCard" aria-live="polite">
+          <!-- Solar events integrated in mooncard -->
+          <div class="fcH-solar" id="solarEvents" aria-live="polite">
+              <div class="moon-title">Soloppgang og solnedgang</div>
+              <div class="sun-events" id="nextSunEvent">
+                  <div class="sun-loading">Henter soldata...</div>
+              </div>
+          </div>
 
-        <svg class="moon-svg" id="moonSvg" viewBox="0 0 120 120" role="img" aria-label="Månefase"></svg>
+        <div><svg class="moon-svg" id="moonSvg" viewBox="0 0 120 120" role="img" aria-label="Månefase"></svg>
         <div class="moon-info">
           <div class="moon-title">Månefase</div>
           <div id="moonText" class="muted">Henter fra MET…</div>
           <hr>
           <div class="moon-title">Flo og fjære</div>
           <div id="tide-next"><div>Neste: <strong id="tideNext1">—</strong></div><div>Deretter: <strong id="tideNext2">—</strong></div></div>
-        </div>
+        </div></div>
       </section>
 
 <!-- ENTUR: Hurtigbåt – neste avganger -->
