@@ -179,4 +179,86 @@ export class ADSBManager {
             ]),
             onRowClick: (rowData, index) => {
                 const aircraft = tableData[index];
-                if
+                if (aircraft.flight !== "–") {
+                    window.open(this.flightAwareUrl(aircraft.flight), "_blank", "noopener");
+                }
+            }
+        });
+
+        // Add tooltip functionality
+        this.addTooltipHandlers(tableEl, tableData);
+
+        // Replace table content
+        const tbody = this.elements.tbody();
+        const table = tbody.closest('table');
+        if (table && tableEl.querySelector('table')) {
+            table.querySelector('tbody').innerHTML = tableEl.querySelector('tbody').innerHTML;
+        }
+    }
+
+    addTooltipHandlers(tableEl, aircraftData) {
+        const tooltip = ensureTooltip();
+        const rows = tableEl.querySelectorAll('tbody tr');
+
+        rows.forEach((row, index) => {
+            const aircraft = aircraftData[index]._aircraft;
+
+            row.addEventListener("mouseenter", e => {
+                tooltip.textContent = this.makeTooltipText(aircraft);
+                tooltip.style.display = 'block';
+                tooltip.style.visibility = 'visible';
+                positionTooltip(e, tooltip);
+            });
+
+            row.addEventListener("mousemove", e => {
+                positionTooltip(e, tooltip);
+            });
+
+            row.addEventListener("mouseleave", () => {
+                tooltip.style.visibility = '';
+                tooltip.style.display = 'none';
+            });
+        });
+
+        // Global cleanup handlers
+        this.elements.table().addEventListener("mouseleave", () => {
+            tooltip.hidden = true;
+        }, {once: true});
+
+        window.addEventListener("scroll", () => {
+            tooltip.hidden = true;
+        }, {passive: true});
+    }
+
+    async loadAdsb() {
+        try {
+            UIComponents.toggleElement(this.elements.error(), false);
+
+            const data = await apiClient.get(this.endpoint, 'adsb');
+
+            // Handle both null responses and proper data structure
+            let aircraft = [];
+            if (data === null) {
+                console.warn('ADSB API returned empty response');
+                aircraft = [];
+            } else if (Array.isArray(data?.aircraft)) {
+                aircraft = data.aircraft;
+            } else if (Array.isArray(data)) {
+                // Handle case where API returns array directly
+                aircraft = data;
+            } else {
+                console.warn('Unexpected ADSB data structure:', data);
+                aircraft = [];
+            }
+
+            // Update state instead of calling render directly
+            appState.setState('location.adsb', aircraft);
+
+        } catch (error) {
+            console.error("ADSB fetch error:", error);
+            appState.setState('location.adsb', []);
+            UIComponents.toggleElement(this.elements.error(), true);
+            UIComponents.updateContent(this.elements.updated(), "feil ved oppdatering");
+        }
+    }
+}
