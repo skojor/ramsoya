@@ -79,10 +79,34 @@ export class AISManager {
     }
 
     renderVessels(vessels) {
+        console.log('renderVessels called with:', vessels.length, 'vessels');
+
         const hasRows = vessels.length > 0;
         UIComponents.toggleElement(this.elements.wrap(), hasRows);
         UIComponents.toggleElement(this.elements.empty(), !hasRows);
-        UIComponents.updateContent(this.elements.count(), vessels.length);
+
+        // Update count with multiple fallback methods
+        const count = vessels.length;
+        console.log('Updating AIS count to:', count);
+
+        // Method 1: Try UIComponents
+        const countElement = this.elements.count();
+        if (countElement) {
+            UIComponents.updateContent(countElement, count);
+            console.log('AIS Updated via UIComponents, element textContent:', countElement.textContent);
+        } else {
+            console.error('AIS Count element not found via this.elements.count()!');
+        }
+
+        // Method 2: Direct DOM fallback to ensure it works
+        const directCountElement = document.getElementById('ais-count');
+        if (directCountElement) {
+            directCountElement.textContent = count.toString();
+            console.log('AIS Updated via direct DOM, element textContent:', directCountElement.textContent);
+        } else {
+            console.error('AIS Count element not found via direct DOM query!');
+        }
+
         UIComponents.updateContent(this.elements.updated(), `oppdatert ${this.fmtUpdated()}`);
 
         if (hasRows) {
