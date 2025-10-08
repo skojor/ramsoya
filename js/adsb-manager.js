@@ -94,12 +94,15 @@ export class ADSBManager {
     renderTable(aircraft) {
         // Convert aircraft data to table format
         const tableData = aircraft.map(a => {
-            const actions = (a.callsign || a.flight) ?
-                `<a class="iconbtn" href="${this.flightAwareUrl(a.callsign || a.flight)}" target="_blank" rel="noopener" title="Åpne i FlightAware" onclick="event.stopPropagation()">${this.iconPlane}</a>` : '';
+            const flightNumber = a.flight || a.callsign || "–";
+            const airline = a.airline || "–";
+
+            const actions = flightNumber !== "–" ?
+                `<a class="iconbtn" href="${this.flightAwareUrl(flightNumber)}" target="_blank" rel="noopener" title="Åpne i FlightAware" onclick="event.stopPropagation()">${this.iconPlane}</a>` : '';
 
             return {
-                callsign: a.callsign || a.flight || "–",
-                aircraft_type: a.aircraft_type || a.t || "–",
+                flight: flightNumber,
+                airline: airline,
                 altitude: (typeof a.alt_ft === "number") ? `${a.alt_ft}` :
                          (typeof a.alt_baro === "number") ? `${a.alt_baro}` :
                          (typeof a.altitude === "number") ? `${a.altitude}` : "–",
@@ -116,14 +119,15 @@ export class ADSBManager {
             };
         });
 
-        const headers = ['Kallesignal', 'Flytype', 'Høyde', 'Fart', 'Kurs', 'Avstand', ''];
+        // Use headers that match the HTML table structure
+        const headers = ['Flight', 'Flyselskap', 'Høyde (ft)', 'Fart (kt)', 'Retning', 'Avstand (nm)', 'Sist sett'];
 
         // Create table using UIComponents
         const tableEl = UIComponents.createTable({
             headers,
             rows: tableData.map(row => [
-                row.callsign,
-                row.aircraft_type,
+                row.flight,
+                row.airline,
                 row.altitude,
                 row.speed,
                 row.track,
@@ -132,8 +136,8 @@ export class ADSBManager {
             ]),
             onRowClick: (rowData, index) => {
                 const aircraft = tableData[index];
-                if (aircraft.callsign && aircraft._aircraft.callsign) {
-                    window.open(this.flightAwareUrl(aircraft._aircraft.callsign), "_blank", "noopener");
+                if (aircraft.flight !== "–") {
+                    window.open(this.flightAwareUrl(aircraft.flight), "_blank", "noopener");
                 }
             }
         });
