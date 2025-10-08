@@ -75,6 +75,7 @@ export const CONFIG = {
     EXTERNAL: {
         MARINE_TRAFFIC: "https://www.marinetraffic.com/en/ais/details/ships/mmsi:",
         FLIGHTRADAR24: "https://www.flightradar24.com/64.32,10.41/8",
+        FLIGHT_AWARE: "https://flightaware.com/live/flight/",
         GOOGLE_FLIGHT_SEARCH: "https://www.google.com/search?q=",
         RAMSOY_ISHIP: "https://ramsoy.iship.no"
     }
