@@ -80,10 +80,21 @@ export class ADSBManager {
     }
 
     renderAircraft(aircraft) {
+        console.log('renderAircraft called with:', aircraft.length, 'aircraft');
+
         const hasRows = aircraft.length > 0;
         UIComponents.toggleElement(this.elements.wrap(), hasRows);
         UIComponents.toggleElement(this.elements.empty(), !hasRows);
-        UIComponents.updateContent(this.elements.count(), aircraft.length);
+
+        // Ensure the count element exists and update it
+        const countElement = this.elements.count();
+        if (countElement) {
+            console.log('Updating count to:', aircraft.length);
+            UIComponents.updateContent(countElement, aircraft.length);
+        } else {
+            console.error('Count element not found!');
+        }
+
         UIComponents.updateContent(this.elements.updated(), `oppdatert ${this.fmtUpdated()}`);
 
         if (hasRows) {
