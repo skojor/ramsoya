@@ -188,6 +188,13 @@ try {
             $enriched_aircraft['track_deg'] = $aircraft['track'];
         }
 
+        // Add last seen timestamp (tid) for frontend
+        if (isset($aircraft['seen']) && is_numeric($aircraft['seen'])) {
+            $enriched_aircraft['tid'] = $current_time - $aircraft['seen'];
+        } elseif (isset($aircraft['seen_pos']) && is_numeric($aircraft['seen_pos'])) {
+            $enriched_aircraft['tid'] = $current_time - $aircraft['seen_pos'];
+        }
+
         $filtered_aircraft[] = $enriched_aircraft;
     }
 
