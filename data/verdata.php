@@ -1,5 +1,5 @@
 <?php
-require("../private/konfigs.php");
+require("../../private/konfigs.php");
 
 // --- HTTP-headers ---
 header('Content-Type: application/json; charset=utf-8');

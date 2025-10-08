@@ -12,7 +12,7 @@ function parse_db_version($s) {
   return [$isMaria,$maj,$min,$pat];
 }
 
-include("../private/konfigs.php");
+include("../../private/konfigs.php");
 
 try {
   $debug     = isset($_GET['debug']) ? (int)$_GET['debug'] : 0;

@@ -57,7 +57,8 @@ $airline_map = [
     'VLG' => 'Vueling',
     'LOT' => 'LOT Polish Airlines',
     'ITY' => 'ITA Airways',
-    'NOZ' => 'Norwegian'
+    'NOZ' => 'Norwegian',
+    'NSZ' => 'Norwegian'
 ];
 
 /**
@@ -92,14 +93,17 @@ function derive_airline($flight) {
 
     if (empty($flight)) return null;
 
+    // Normalize flight code by removing possible suffixes (e.g., /A, .L, etc.)
+    $normalized_flight = preg_replace('/[\/.].*/', '', $flight);
+
     // Try 3-letter code first
-    $code3 = substr($flight, 0, 3);
+    $code3 = substr($normalized_flight, 0, 3);
     if (isset($airline_map[$code3])) {
         return $airline_map[$code3];
     }
 
     // Try 2-letter code
-    $code2 = substr($flight, 0, 2);
+    $code2 = substr($normalized_flight, 0, 2);
     if (isset($airline_map[$code2])) {
         return $airline_map[$code2];
     }

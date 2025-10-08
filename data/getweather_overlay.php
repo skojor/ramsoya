@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require("../private/weathercred.php");
+require("../../private/weathercred.php");
 
 // ---------- HJELPEFUNKSJONER ----------
 function wdir_to_text(?int $deg): ?string {
@@ -149,4 +149,3 @@ try {
     header_json();
     echo json_encode(["Feil ved henting av data"], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }
-

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Sunset</title>
+  <desc id="desc">Sun setting below the horizon with soft warm glow</desc>
+  <defs>
+    <radialGradient id="sunGrad" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#FFD348"/>
+      <stop offset="100%" stop-color="#FF9D00"/>
+    </radialGradient>
+    <linearGradient id="horizonGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#EAEAEA"/>
+      <stop offset="100%" stop-color="#CFCFCF"/>
+    </linearGradient>
+    <radialGradient id="glowGrad" cx="50%" cy="70%" r="70%">
+      <stop offset="0%" stop-color="#FF9D00" stop-opacity="0.4"/>
+      <stop offset="60%" stop-color="#FF9D00" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#FF9D00" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Clip to show only the sun BELOW the horizon -->
+    <clipPath id="belowHorizon">
+      <rect x="0" y="38" width="64" height="26"/>
+    </clipPath>
+  </defs>
+
+  <!-- horizon -->
+  <rect x="6" y="38" width="52" height="4" rx="2" fill="url(#horizonGrad)"/>
+
+  <!-- subtle glow beneath horizon -->
+  <ellipse cx="32" cy="46" rx="26" ry="14" fill="url(#glowGrad)"/>
+
+  <!-- sun (half visible below horizon) -->
+  <g clip-path="url(#belowHorizon)">
+    <circle cx="32" cy="38" r="14" fill="url(#sunGrad)"/>
+  </g>
+</svg>
