@@ -86,13 +86,26 @@ export class ADSBManager {
         UIComponents.toggleElement(this.elements.wrap(), hasRows);
         UIComponents.toggleElement(this.elements.empty(), !hasRows);
 
-        // Ensure the count element exists and update it
+        // Update count with multiple fallback methods
+        const count = aircraft.length;
+        console.log('Updating count to:', count);
+
+        // Method 1: Try UIComponents
         const countElement = this.elements.count();
         if (countElement) {
-            console.log('Updating count to:', aircraft.length);
-            UIComponents.updateContent(countElement, aircraft.length);
+            UIComponents.updateContent(countElement, count);
+            console.log('Updated via UIComponents, element textContent:', countElement.textContent);
         } else {
-            console.error('Count element not found!');
+            console.error('Count element not found via this.elements.count()!');
+        }
+
+        // Method 2: Direct DOM fallback to ensure it works
+        const directCountElement = document.getElementById('adsb-count');
+        if (directCountElement) {
+            directCountElement.textContent = count.toString();
+            console.log('Updated via direct DOM, element textContent:', directCountElement.textContent);
+        } else {
+            console.error('Count element not found via direct DOM query!');
         }
 
         UIComponents.updateContent(this.elements.updated(), `oppdatert ${this.fmtUpdated()}`);
