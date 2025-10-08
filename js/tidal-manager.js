@@ -47,11 +47,15 @@ export class TidalManager {
 
     init() {
         // Initial load
-        this.loadTidalData();
+        this.loadTidalData().catch(error => {
+            console.error('Failed to load initial tidal data:', error);
+        });
 
         // Setup visibility-aware interval for tidal updates
         visibilityManager.setInterval('tidal',
-            () => this.loadTidalData(),
+            () => this.loadTidalData().catch(error => {
+                console.error('Failed to load tidal data during interval:', error);
+            }),
             this.refreshMs,
             1.5 // 1.5x slower when hidden (30min -> 45min) - tidal changes are predictable
         );
@@ -127,7 +131,6 @@ export class TidalManager {
     async loadTidalData() {
         try {
             const url = this.buildTidalUrl();
-            console.log('Tidal: Fetching from URL:', url);
 
             // Use direct fetch since tidal API returns XML/text, not JSON
             const response = await fetch(url, { cache: 'no-store' });
@@ -137,8 +140,7 @@ export class TidalManager {
             }
 
             const responseText = await response.text();
-            console.log('Tidal: Raw response length:', responseText.length);
-            console.log('Tidal: Raw response preview (first 200 chars):', responseText.substring(0, 200));
+
 
             // Handle both null responses and text responses
             let tidalEvents = [];
@@ -148,12 +150,10 @@ export class TidalManager {
             } else {
                 // Parse tidal data from XML/text response
                 tidalEvents = this.parseTidalResponse(responseText);
-                console.log('Tidal: Parsed events count:', tidalEvents.length);
-                console.log('Tidal: Parsed events:', tidalEvents);
+
             }
 
             if (tidalEvents && tidalEvents.length > 0) {
-                console.log('Tidal: Setting state with', tidalEvents.length, 'events');
                 appState.setState('location.tidal', tidalEvents.slice(0, 2));
             } else {
                 console.warn('Tidal: No events found, setting null state');
@@ -167,7 +167,6 @@ export class TidalManager {
     }
 
     parseTidalResponse(responseText) {
-        console.log('Tidal: Starting to parse response...');
         if (typeof responseText !== 'string') {
             console.warn('Tidal: Response is not a string:', typeof responseText);
             return [];
@@ -175,19 +174,15 @@ export class TidalManager {
 
         // First, let's check if this is XML format
         if (responseText.includes('<tide>') || responseText.includes('<?xml')) {
-            console.log('Tidal: Response appears to be XML format');
             return this.parseXmlTidalResponse(responseText);
         }
 
         // Otherwise, try tab-separated format
-        console.log('Tidal: Trying tab-separated format');
         const lines = responseText.split('\n').filter(line => line.trim().length > 0);
-        console.log('Tidal: Found', lines.length, 'non-empty lines');
         const events = [];
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            console.log(`Tidal: Processing line ${i}:`, line);
             const parts = line.split('\t');
 
             if (parts.length >= 3) {
@@ -196,14 +191,11 @@ export class TidalManager {
                     const type = parts[1];
                     const cmStr = parts[2];
 
-                    console.log(`Tidal: Parsing - time: "${timeStr}", type: "${type}", cm: "${cmStr}"`);
-
                     const time = new Date(timeStr);
                     const cm = parseFloat(cmStr);
 
                     if (!isNaN(time.getTime()) && !isNaN(cm)) {
                         events.push({ time, type, cm });
-                        console.log('Tidal: Successfully parsed event:', { time: time.toISOString(), type, cm });
                     } else {
                         console.warn('Tidal: Failed to parse time/cm values:', { time: time.toISOString(), cm });
                     }
@@ -211,16 +203,13 @@ export class TidalManager {
                     console.warn('Tidal: Failed to parse line:', line, e);
                 }
             } else {
-                console.log(`Tidal: Skipping line with ${parts.length} parts:`, line);
             }
         }
 
-        console.log('Tidal: Final parsed events:', events);
         return events.sort((a, b) => a.time - b.time);
     }
 
     parseXmlTidalResponse(responseText) {
-        console.log('Tidal: Parsing XML response using original method...');
         const events = [];
 
         try {
@@ -234,9 +223,6 @@ export class TidalManager {
                 cm: Number(el.getAttribute('value'))
             }));
 
-            console.log('Tidal: Found', items.length, 'waterlevel elements');
-            console.log('Tidal: Raw items:', items);
-
             // Filter out invalid entries and return as events
             items.forEach(item => {
                 if (item.time && !isNaN(item.time.getTime()) && !isNaN(item.cm)) {
@@ -248,13 +234,11 @@ export class TidalManager {
             console.error('Tidal: XML parsing failed:', error);
         }
 
-        console.log('Tidal: Final events:', events);
         return events.sort((a, b) => a.time - b.time);
     }
 
     parseXmlWithRegex(responseText) {
         // Remove this fallback method since the original approach should work
-        console.log('Tidal: Regex fallback not needed with correct XML parsing');
         return [];
     }
 }

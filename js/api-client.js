@@ -1,5 +1,5 @@
 // Unified API client with interceptors, retries, and loading state management
-import { appState } from './state-manager.js';
+import {appState} from './state-manager.js';
 
 export class ApiClient {
     constructor() {
@@ -30,20 +30,16 @@ export class ApiClient {
 
         // Return existing pending request if available
         if (this.pendingRequests.has(requestKey)) {
-            console.log(`🔄 Deduplicating request to ${url}`);
             return this.pendingRequests.get(requestKey);
         }
 
         const mergedOptions = { ...this.defaultOptions, ...options };
-        let lastError = null;
-
-        // Create and store the promise
+// Create and store the promise
         const fetchPromise = this.executeFetch(url, mergedOptions, loadingKey);
         this.pendingRequests.set(requestKey, fetchPromise);
 
         try {
-            const result = await fetchPromise;
-            return result;
+            return await fetchPromise;
         } finally {
             // Clean up the pending request
             this.pendingRequests.delete(requestKey);

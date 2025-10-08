@@ -1,6 +1,6 @@
 // Weather forecast management
 import { CONFIG, YR_SYMBOL_MAP, iconDefault } from './constants.js';
-import { norm360, hourFmt } from './utils.js';
+import { hourFmt } from './utils.js';
 import { appState } from './state-manager.js';
 import { apiClient } from './api-client.js';
 import { UIComponents } from './ui-components.js';
@@ -41,9 +41,13 @@ export class ForecastManager {
     }
 
     pickHourlySymbol(item) {
+        // Try both the old (summary) and new (details) API formats for maximum compatibility
         return item?.data?.next_1_hours?.summary?.symbol_code ||
             item?.data?.next_6_hours?.summary?.symbol_code ||
-            item?.data?.next_12_hours?.summary?.symbol_code || null;
+            item?.data?.next_12_hours?.summary?.symbol_code ||
+            item?.data?.next_1_hours?.details?.symbol_code ||
+            item?.data?.next_6_hours?.details?.symbol_code ||
+            item?.data?.next_12_hours?.details?.symbol_code || null;
     }
 
     renderHourly(series) {

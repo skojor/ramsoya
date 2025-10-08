@@ -1,6 +1,6 @@
 // Image management and overlay functionality
 import { CONFIG } from './constants.js';
-import { bust } from './utils.js';
+import { bust, humanAge } from './utils.js';
 import { visibilityManager } from './visibility-manager.js';
 
 export class ImageManager {
@@ -67,15 +67,6 @@ export class ImageManager {
         }
     }
 
-    humanAge(ms) {
-        const s = Math.max(0, Math.floor(ms / 1000));
-        if (s < 60) return `${s}s`;
-        const m = Math.floor(s / 60), r = s % 60;
-        if (m < 60) return `${m}m ${r}s`;
-        const h = Math.floor(m / 60), mr = m % 60;
-        return `${h}t ${mr}m`;
-    }
-
     updateStatus() {
         // Only use imageCaptureTs if available, otherwise show loading state
         if (!this.imageCaptureTs) {
@@ -85,6 +76,6 @@ export class ImageManager {
         }
         const ageSec = Math.floor((Date.now() - this.imageCaptureTs) / 1000);
         this.statusEl.className = "status-pill " + (ageSec > 300 ? "bad" : ageSec > 120 ? "warn" : "ok");
-        this.statusText.textContent = `Bilde ${this.humanAge(Date.now() - this.imageCaptureTs)} gammelt`;
+        this.statusText.textContent = `Bilde ${humanAge(Date.now() - this.imageCaptureTs)} gammelt`;
     }
 }

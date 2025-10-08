@@ -8,8 +8,6 @@ import { UIComponents } from './ui-components.js';
 export class WeatherManager {
     constructor() {
         this.overlayEl = document.getElementById("weatherOverlay");
-        this.lastWeatherTs = 0;
-
         // Subscribe to state changes
         this.setupStateSubscriptions();
     }
@@ -97,7 +95,6 @@ export class WeatherManager {
             if (weatherData) {
                 appState.setState('weather.current', weatherData);
                 appState.setState('weather.lastUpdate', Date.now());
-                this.lastWeatherTs = Date.now();
                 this.updateStatus();
             } else {
                 console.warn('No weather data received');

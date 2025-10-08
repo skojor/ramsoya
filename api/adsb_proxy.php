@@ -94,7 +94,7 @@ function derive_airline($flight) {
     if (empty($flight)) return null;
 
     // Normalize flight code by removing possible suffixes (e.g., /A, .L, etc.)
-    $normalized_flight = preg_replace('/[\/\.].*/', '', $flight);
+    $normalized_flight = preg_replace('/[\/.].*/', '', $flight);
 
     // Try 3-letter code first
     $code3 = substr($normalized_flight, 0, 3);

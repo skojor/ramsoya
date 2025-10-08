@@ -16,7 +16,6 @@ export class VisibilityManager {
             this.isVisible = !document.hidden;
 
             if (wasVisible !== this.isVisible) {
-                console.log(`📱 Tab ${this.isVisible ? 'visible' : 'hidden'} - adjusting update frequencies`);
                 this.adjustAllIntervals();
             }
         });
@@ -75,23 +74,12 @@ export class VisibilityManager {
         }
     }
 
-    /**
-     * Get current effective interval for a key
-     */
-    getCurrentInterval(key) {
-        const config = this.intervals.get(key);
-        if (!config) return null;
-
-        return this.isVisible ?
-            config.normalInterval :
-            config.normalInterval * config.hiddenMultiplier;
-    }
 
     /**
      * Pause all intervals (useful for debugging or manual control)
      */
     pauseAll() {
-        for (const [key, config] of this.intervals) {
+        for (const [config] of this.intervals.values()) {
             if (config.currentInterval) {
                 clearInterval(config.currentInterval);
                 config.currentInterval = null;
@@ -99,35 +87,7 @@ export class VisibilityManager {
         }
     }
 
-    /**
-     * Resume all intervals
-     */
-    resumeAll() {
-        for (const key of this.intervals.keys()) {
-            this.startInterval(key);
-        }
-    }
 
-    /**
-     * Get status of all intervals
-     */
-    getStatus() {
-        const status = {
-            isVisible: this.isVisible,
-            activeIntervals: this.intervals.size,
-            intervals: {}
-        };
-
-        for (const [key, config] of this.intervals) {
-            status.intervals[key] = {
-                normalInterval: config.normalInterval,
-                currentInterval: this.getCurrentInterval(key),
-                isRunning: config.currentInterval !== null
-            };
-        }
-
-        return status;
-    }
 }
 
 // Create singleton instance

@@ -97,31 +97,13 @@ export class StateManager {
         };
     }
 
-    /**
-     * Get current state snapshot
-     * @returns {Object} Deep copy of current state
-     */
-    getSnapshot() {
-        return JSON.parse(JSON.stringify(this.state));
-    }
-
-    /**
-     * Clear all state and subscribers
-     */
-    clear() {
-        this.state = {};
-        this.subscribers.clear();
-        this.history.clear();
-    }
 
     /**
      * Get state history for debugging
      * @param {string} key - State key
      * @returns {Array} History entries
      */
-    getHistory(key) {
-        return this.history.get(key) || [];
-    }
+
 
     // Helper methods for nested object access
     setNestedValue(obj, path, value) {
@@ -198,5 +180,3 @@ appState.setState('errors.image', null, { silent: true });
 appState.setState('errors.ais', null, { silent: true });
 appState.setState('errors.adsb', null, { silent: true });
 appState.setState('errors.entur', null, { silent: true });
-
-console.log('State management initialized');

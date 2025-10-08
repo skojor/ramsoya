@@ -51,12 +51,16 @@ export class ChartManager {
         this.setupEventListeners();
         this.setActive(this.currentRange);
 
-        // Initial load
-        this.loadChartData();
+        // Initial load with error handling
+        this.loadChartData().catch(error => {
+            console.error('Failed to load initial chart data:', error);
+        });
 
         // Setup visibility-aware interval for chart data updates
         visibilityManager.setInterval('charts',
-            () => this.loadChartData(),
+            () => this.loadChartData().catch(error => {
+                console.error('Failed to load chart data during interval:', error);
+            }),
             this.refreshMs,
             2 // 2x slower when hidden (1min -> 2min) - statistical data changes slowly
         );
@@ -120,7 +124,7 @@ export class ChartManager {
             const responseData = await apiClient.get(url, 'charts');
 
             // Handle both null responses and proper data structure
-            let rows = [];
+            let rows;
             if (responseData === null) {
                 console.warn('Charts API returned empty response');
                 rows = [];
@@ -260,10 +264,14 @@ export class ChartManager {
 
     setupEventListeners() {
         this.elements.rangeButtons().forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 this.currentRange = btn.dataset.range;
                 this.setActive(this.currentRange);
-                this.render(this.currentRange);
+                try {
+                    await this.render(this.currentRange);
+                } catch (error) {
+                    console.error('Error rendering chart for range:', this.currentRange, error);
+                }
             });
         });
     }

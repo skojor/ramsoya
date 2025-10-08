@@ -10,12 +10,9 @@ $allowedParams = ['lat','lon','date','offset','elevation','day','to','lang'];
 
 // Bygg URL med whitelistede parametre
 $base = 'https://api.met.no/weatherapi/sunrise/3.0/moon';
-$q = [];
-foreach ($_GET as $k => $v) {
-  if (in_array($k, $allowedParams, true)) {
-    $q[$k] = $v;
-  }
-}
+$q = array_filter($_GET, function ($k) use ($allowedParams) {
+    return in_array($k, $allowedParams, true);
+}, ARRAY_FILTER_USE_KEY);
 $upstreamUrl = $base . (empty($q) ? '' : ('?' . http_build_query($q)));
 
 // Enkelt cache-oppsett (filbasert)
@@ -83,7 +80,8 @@ if (!$metData) {
 }
 
 // Helper functions
-function getPhaseName($deg) {
+function getPhaseName($deg): string
+{
     $d = fmod(fmod($deg, 360) + 360, 360); // Normalize to 0-360
 
     if ($d < 10 || $d >= 350) return "Nymåne";
@@ -94,7 +92,8 @@ function getPhaseName($deg) {
     return $d < 180 ? "Voksende" : "Minkende";
 }
 
-function generateMoonSVG($phase, $illumination) {
+function generateMoonSVG($phase): string
+{
     $size = 120;
     $r = $size / 2;
     $cx = $r;
@@ -102,10 +101,10 @@ function generateMoonSVG($phase, $illumination) {
     $phi = ($phase * M_PI) / 180;
     $rx = abs(cos($phi)) * $r;
 
-    $N = 64; // Number of sample points
 
     // Helper function to sample points along a curve
-    $sample = function($from, $to, $fn) use ($N) {
+    $sample = function($from, $to, $fn) {
+        $N = 64; // Number of sample points
         $pts = [];
         for ($i = 0; $i <= $N; $i++) {
             $t = $from + ($to - $from) * ($i / $N);
@@ -169,7 +168,8 @@ function generateMoonSVG($phase, $illumination) {
 }
 
 // Prosesser månedata - ONLY simple format
-function processMoonData($data) {
+function processMoonData($data): ?array
+{
     if (!isset($data['properties']['moonphase'])) {
         return null;
     }
@@ -180,13 +180,13 @@ function processMoonData($data) {
     $illumination = (1 - cos(deg2rad($phase))) / 2;
 
     // Generer SVG
-    $svg = generateMoonSVG($phase, $illumination);
+    $svg = generateMoonSVG($phase);
 
     // Beregn fasenavn akkurat som originalen
     $phaseName = getPhaseName($phase);
 
     // Formatér tekst akkurat som originalen: "Voksende • 87%" - NOTHING ELSE
-    $phaseText = sprintf('%s • %d%%', $phaseName, round($illumination * 100));
+    $phaseText = sprintf('%s • %d%%', $phaseName, round( $illumination * 100.0));
 
     return [
         'svg' => $svg,
@@ -214,4 +214,3 @@ header('Cache-Control: public, max-age=' . CACHE_TTL);
 header('X-Cache: MISS');
 
 echo json_encode($result);
-?>

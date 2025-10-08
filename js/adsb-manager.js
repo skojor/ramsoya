@@ -80,7 +80,6 @@ export class ADSBManager {
     }
 
     renderAircraft(aircraft) {
-        console.log('renderAircraft called with:', aircraft.length, 'aircraft');
 
         const hasRows = aircraft.length > 0;
         UIComponents.toggleElement(this.elements.wrap(), hasRows);
@@ -88,13 +87,11 @@ export class ADSBManager {
 
         // Update count with multiple fallback methods
         const count = aircraft.length;
-        console.log('Updating count to:', count);
 
         // Method 1: Try UIComponents
         const countElement = this.elements.count();
         if (countElement) {
             UIComponents.updateContent(countElement, count);
-            console.log('Updated via UIComponents, element textContent:', countElement.textContent);
         } else {
             console.error('Count element not found via this.elements.count()!');
         }
@@ -103,7 +100,6 @@ export class ADSBManager {
         const directCountElement = document.getElementById('adsb-count');
         if (directCountElement) {
             directCountElement.textContent = count.toString();
-            console.log('Updated via direct DOM, element textContent:', directCountElement.textContent);
         } else {
             console.error('Count element not found via direct DOM query!');
         }
