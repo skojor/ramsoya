@@ -4,7 +4,6 @@ import { appState } from './state-manager.js';
 export class ErrorHandler {
     constructor() {
         this.maxErrors = 10;
-        this.errorContainer = null;
         this.setupStateSubscriptions();
         this.setupGlobalErrorHandling();
     }
@@ -68,45 +67,9 @@ export class ErrorHandler {
     displayErrors(errors) {
         // No UI notifications - just console logging
         // Users should not see error popups on this site
-        return;
     }
 
-    showErrorContainer(error) {
-        // Disabled - no error notifications to users
-        return;
-    }
-
-    hideErrorContainer() {
-        // Disabled - no error notifications to users
-        return;
-    }
-
-    createErrorContainer() {
-        // Disabled - no error notifications to users
-        return;
-    }
 }
-
-// Centralized error reporting utility
-export const reportError = (type, error, context = null) => {
-    const message = error?.message || String(error);
-    const errors = appState.getState('ui.errors') || [];
-    errors.push({
-        type,
-        message,
-        context,
-        timestamp: Date.now(),
-        id: Date.now() + Math.random()
-    });
-
-    // Keep only recent errors
-    if (errors.length > 10) {
-        errors.shift();
-    }
-
-    appState.setState('ui.errors', errors);
-    console.error(`${type} error:`, error, context ? `Context: ${context}` : '');
-};
 
 // State-based activity tracker
 export class ActivityTracker {

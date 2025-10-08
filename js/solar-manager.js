@@ -24,7 +24,7 @@ export class SolarManager {
 
         // Handle loading state
         appState.subscribe('ui.loading', (loadingStates) => {
-            if (loadingStates.solar !== undefined) {
+            if (loadingStates && typeof loadingStates === 'object' && 'solar' in loadingStates) {
                 this.updateLoadingState(loadingStates.solar);
             }
         });
@@ -46,7 +46,20 @@ export class SolarManager {
         let html = '';
 
         data.events.forEach((event, index) => {
+            // Add null checks for event properties
+            if (!event || !event.iso || !event.dayLabel || !event.label || !event.icon) {
+                console.warn('Incomplete solar event data:', event);
+                return; // Skip this event
+            }
+
             const eventTime = new Date(event.iso);
+
+            // Validate that the date is valid
+            if (isNaN(eventTime.getTime())) {
+                console.warn('Invalid date in solar event:', event.iso);
+                return; // Skip this event
+            }
+
             const timeStr = eventTime.toLocaleTimeString('no-NO', {
                 hour: '2-digit',
                 minute: '2-digit',

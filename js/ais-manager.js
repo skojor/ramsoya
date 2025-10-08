@@ -79,21 +79,16 @@ export class AISManager {
     }
 
     renderVessels(vessels) {
-        console.log('renderVessels called with:', vessels.length, 'vessels');
-
         const hasRows = vessels.length > 0;
         UIComponents.toggleElement(this.elements.wrap(), hasRows);
         UIComponents.toggleElement(this.elements.empty(), !hasRows);
 
         // Update count with multiple fallback methods
         const count = vessels.length;
-        console.log('Updating AIS count to:', count);
-
         // Method 1: Try UIComponents
         const countElement = this.elements.count();
         if (countElement) {
             UIComponents.updateContent(countElement, count);
-            console.log('AIS Updated via UIComponents, element textContent:', countElement.textContent);
         } else {
             console.error('AIS Count element not found via this.elements.count()!');
         }
@@ -102,7 +97,6 @@ export class AISManager {
         const directCountElement = document.getElementById('ais-count');
         if (directCountElement) {
             directCountElement.textContent = count.toString();
-            console.log('AIS Updated via direct DOM, element textContent:', directCountElement.textContent);
         } else {
             console.error('AIS Count element not found via direct DOM query!');
         }
@@ -156,7 +150,7 @@ export class AISManager {
                 row.distance,
                 row.actions
             ]),
-            onRowClick: (rowData, index) => {
+            onRowClick: (index) => {
                 window.open(CONFIG.EXTERNAL.RAMSOY_ISHIP, "_blank", "noopener");
             }
         });
@@ -213,7 +207,7 @@ export class AISManager {
             const data = await apiClient.get(this.endpoint, 'ais');
 
             // Handle both null responses and proper data structure
-            let vessels = [];
+            let vessels;
             if (data === null) {
                 console.warn('AIS API returned empty response');
                 vessels = [];

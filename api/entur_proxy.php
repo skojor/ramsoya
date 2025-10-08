@@ -487,4 +487,3 @@ if (isset($_GET['bidirectional']) && $_GET['bidirectional'] === 'true') {
 error_log("Outputting JSON result");
 echo json_encode($result);
 error_log("Script completed");
-?>

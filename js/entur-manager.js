@@ -46,12 +46,16 @@ export class EnturManager {
     }
 
     init() {
-        // Initial load
-        this.updateEntur();
+        // Initial load with error handling
+        this.updateEntur().catch(error => {
+            console.error('Failed to load initial Entur data:', error);
+        });
 
         // Setup visibility-aware interval for transport updates
         visibilityManager.setInterval('entur',
-            () => this.updateEntur(),
+            () => this.updateEntur().catch(error => {
+                console.error('Failed to load Entur data during interval:', error);
+            }),
             this.refreshMs,
             2 // 2x slower when hidden (1min -> 2min) - transport schedules change moderately
         );
@@ -59,32 +63,26 @@ export class EnturManager {
 
     async updateEntur() {
         try {
-            console.log('Entur: Fetching from', this.apiUrl);
             const data = await apiClient.get(this.apiUrl, 'entur');
-            console.log('Entur: Raw response received:', data);
 
             // Handle both null responses and proper data structure
-            let enturData = null;
+            let enturData;
             if (data === null) {
                 console.warn('Entur API returned empty response');
                 enturData = null;
             } else if (data && typeof data === 'object') {
-                console.log('Entur: Checking data structure, keys:', Object.keys(data));
 
                 // Handle wrapped response format {success: true, data: {...}}
                 if (data.success && data.data) {
-                    console.log('Entur: Found wrapped response format');
                     enturData = data.data; // Extract the actual data
                     enturData.updated = data.updated; // Preserve the updated timestamp
                 }
                 // Handle direct format with expected properties
                 else if (data.bidirectionalDepartures || data.stopRamsoyUrl || data.stopSandviksUrl) {
-                    console.log('Entur: Found direct response format');
                     enturData = data;
                 }
                 // Handle other possible formats
                 else if (data.departures || data.error) {
-                    console.log('Entur: Found alternative response format');
                     enturData = data;
                 } else {
                     console.warn('Entur: Unexpected data structure. Keys:', Object.keys(data), 'Data:', data);
@@ -96,7 +94,6 @@ export class EnturManager {
             }
 
             if (enturData) {
-                console.log('Entur: Setting state with valid data:', enturData);
                 appState.setState('transport.entur', enturData);
                 UIComponents.updateContent(this.elements.updated(), `oppdatert ${this.fmtUpdated()}`);
             } else {
@@ -146,8 +143,6 @@ export class EnturManager {
     }
 
     renderBidirectionalDepartures(data) {
-        console.log('Rendering Entur departures:', data);
-
         const {bidirectionalDepartures, stopRamsoyUrl, stopSandviksUrl, updated} = data;
 
         if (!bidirectionalDepartures || bidirectionalDepartures.length === 0) {
@@ -194,13 +189,12 @@ export class EnturManager {
             }
 
             // Build the complete line with enhanced status information
-            html += `<div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin: 0.4rem 0px;">`;
+            html += `<div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin: 0.4rem 0;">`;
             html += `<span><strong style="color:#a9b3bd;font-weight:600;margin-right:.3rem;">${direction}:</strong> ${depTimeFormatted} – ${dep.destination}${onTimeStatus}${arrivalInfo}${fallbackNote}</span>`;
             html += `<div class="row-actions">${actionBtn}</div>`;
             html += `</div>`;
         });
 
-        console.log('Generated HTML:', html);
         this.elements.dep().innerHTML = html;
         this.elements.updated().textContent = `oppdatert ${updated}`;
     }

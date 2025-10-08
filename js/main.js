@@ -10,7 +10,6 @@ import { ChartManager } from './chart-manager.js';
 import { UIManager } from './ui-manager.js';
 import { CONFIG } from './constants.js';
 import { appState } from './state-manager.js';
-import { ErrorHandler, ActivityTracker } from './error-handler.js';
 import { injectComponentStyles } from './ui-components.js';
 
 // Legacy global configuration for backward compatibility
@@ -22,10 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize UI components system
     injectComponentStyles();
-
-    // Initialize state management system
-    const errorHandler = new ErrorHandler();
-    const activityTracker = new ActivityTracker();
 
     // Set app as initialized
     appState.setState('app.initialized', true);
@@ -45,60 +40,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Set up state debugging in development
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         window.appState = appState; // Expose for debugging
-        console.log('🔧 Development mode: appState available in console');
 
         // Log state changes in development
         const originalSetState = appState.setState.bind(appState);
         appState.setState = function(key, value, options) {
-            console.log(`📊 State update: ${key} =`, value);
             return originalSetState(key, value, options);
         };
     }
 
     console.log('✅ All systems initialized successfully');
 });
-
-/**
- * Set up coordination between different data sources
- */
-function setupDataFlowCoordination() {
-    // Example: When image updates, also refresh weather overlay position
-    appState.subscribe('image.url', () => {
-        // Could trigger overlay repositioning or other UI updates
-        console.log('📸 Image updated, coordinating related updates...');
-    });
-
-    // Example: Coordinate error states across components
-    appState.subscribe('ui.errors', (errors) => {
-        const errorTypes = errors.map(e => e.type);
-        console.log('⚠️ Active errors:', errorTypes);
-
-        // Could disable certain features when critical errors occur
-        if (errorTypes.includes('weather') && errorTypes.includes('image')) {
-            console.log('🚨 Critical systems experiencing errors');
-        }
-    });
-
-    // Example: Activity-based optimizations
-    appState.subscribe('app.lastActivity', (lastActivity) => {
-        const timeSinceActivity = Date.now() - lastActivity;
-        if (timeSinceActivity < 1000) {
-            // Recent activity - could increase refresh rates
-            console.log('🔄 Recent activity detected');
-        }
-    });
-
-    // Data freshness monitoring
-    setInterval(() => {
-        const imageTime = appState.getState('image.lastUpdate');
-        const weatherTime = appState.getState('weather.lastUpdate');
-        const now = Date.now();
-
-        // Log data freshness
-        if (imageTime && weatherTime) {
-            const imageAge = Math.floor((now - imageTime) / 1000);
-            const weatherAge = Math.floor((now - weatherTime) / 1000);
-            console.log(`📊 Data age: Image ${imageAge}s, Weather ${weatherAge}s`);
-        }
-    }, 30000); // Every 30 seconds
-}

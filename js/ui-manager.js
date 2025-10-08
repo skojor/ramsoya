@@ -8,23 +8,6 @@ export class UIManager {
         this.setupEventListeners();
     }
 
-    updateStatus(message, isError = false) {
-        const statusEl = document.getElementById('status');
-        const statusText = document.getElementById('statusText');
-        if (statusText) {
-            statusText.textContent = message;
-        }
-        if (statusEl) {
-            statusEl.className = `status-pill ${isError ? 'bad' : 'ok'}`;
-        }
-    }
-
-    toggleWeatherOverlay() {
-        const overlay = document.getElementById('weatherOverlay');
-        if (overlay) {
-            overlay.hidden = !overlay.hidden;
-        }
-    }
 
     setupEventListeners() {
         // Button event handlers for time range selection
@@ -47,7 +30,6 @@ export class UIManager {
         // Window beforeunload cleanup - remove undefined timer references
         window.addEventListener("beforeunload", () => {
             // Managers now handle their own cleanup
-            console.log('Page unloading - cleanup handled by individual managers');
         });
     }
 }

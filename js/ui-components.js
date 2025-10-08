@@ -7,12 +7,6 @@ export class UIComponents {
      * @param {string} type - Status type: 'loading', 'success', 'error', 'warning'
      * @returns {HTMLElement}
      */
-    static createStatusIndicator(text, type = 'success') {
-        const element = document.createElement('div');
-        element.className = `status-indicator status-${type}`;
-        element.textContent = text;
-        return element;
-    }
 
     /**
      * Create a data card component
@@ -183,15 +177,28 @@ export class UIComponents {
         const card = document.createElement('div');
         card.className = 'fcH-card';
 
+        const iconHtml = iconPath ?
+            `<img src="${iconPath}" alt="${sym}" data-fallback="ikoner/yr/04.svg">` :
+            '—';
+
         card.innerHTML = `
             <div class="fcH-time">${timeLabel}</div>
-            <div class="fcH-icon">
-                ${iconPath ? `<img src="${iconPath}" alt="${sym}" onerror="this.onerror=null;this.src='ikoner/yr/04.svg';this.alt='cloudy';">` : '—'}
-            </div>
+            <div class="fcH-icon">${iconHtml}</div>
             <div class="fcH-t">${tDisp}</div>
             <div class="fcH-mm">${pDisp}</div>
             <div class="fcH-wind">${windTxt} ${arrow}</div>
         `;
+
+        // Add proper error handling for the image
+        if (iconPath) {
+            const img = card.querySelector('img');
+            if (img) {
+                img.addEventListener('error', function() {
+                    this.src = 'ikoner/yr/04.svg';
+                    this.alt = 'cloudy';
+                });
+            }
+        }
 
         return card;
     }

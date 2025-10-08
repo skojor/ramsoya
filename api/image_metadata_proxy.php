@@ -20,4 +20,3 @@ if ($headers && isset($headers['Last-Modified'])) {
         'success' => false
     ]);
 }
-?>
