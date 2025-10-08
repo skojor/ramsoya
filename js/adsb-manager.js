@@ -123,13 +123,10 @@ export class ADSBManager {
             // Format 'Sist sett' (last seen) as a readable time string if possible
             let lastSeen = "–";
             if (a.tid) {
-                // Try to parse as ISO or epoch seconds
                 let dateObj;
                 if (typeof a.tid === 'number') {
-                    // Assume epoch seconds
                     dateObj = new Date(a.tid * 1000);
                 } else if (typeof a.tid === 'string') {
-                    // Try ISO or fallback
                     const parsed = Date.parse(a.tid);
                     if (!isNaN(parsed)) {
                         dateObj = new Date(parsed);
@@ -137,7 +134,7 @@ export class ADSBManager {
                 }
                 if (dateObj instanceof Date && !isNaN(dateObj)) {
                     const pad = n => String(n).padStart(2, "0");
-                    lastSeen = `${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
+                    lastSeen = `${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}:${pad(dateObj.getSeconds())}`;
                 }
             }
 
