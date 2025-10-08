@@ -120,6 +120,27 @@ export class ADSBManager {
             const actions = flightNumber !== "–" ?
                 `<a class="iconbtn" href="${this.flightAwareUrl(flightNumber)}" target="_blank" rel="noopener" title="Åpne i FlightAware" onclick="event.stopPropagation()">${this.iconPlane}</a>` : '';
 
+            // Format 'Sist sett' (last seen) as a readable time string if possible
+            let lastSeen = "–";
+            if (a.tid) {
+                // Try to parse as ISO or epoch seconds
+                let dateObj;
+                if (typeof a.tid === 'number') {
+                    // Assume epoch seconds
+                    dateObj = new Date(a.tid * 1000);
+                } else if (typeof a.tid === 'string') {
+                    // Try ISO or fallback
+                    const parsed = Date.parse(a.tid);
+                    if (!isNaN(parsed)) {
+                        dateObj = new Date(parsed);
+                    }
+                }
+                if (dateObj instanceof Date && !isNaN(dateObj)) {
+                    const pad = n => String(n).padStart(2, "0");
+                    lastSeen = `${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
+                }
+            }
+
             return {
                 flight: flightNumber,
                 airline: airline,
@@ -134,6 +155,7 @@ export class ADSBManager {
                 distance: (typeof a.dist_nm === "number") ? a.dist_nm.toFixed(1) :
                          (typeof a.distance_nm === "number") ? a.distance_nm.toFixed(1) :
                          (typeof a.distance_km === "number") ? (a.distance_km / 1.852).toFixed(1) : "–",
+                lastSeen: lastSeen,
                 actions: actions,
                 _aircraft: a // Keep reference for tooltip
             };
@@ -152,90 +174,9 @@ export class ADSBManager {
                 row.speed,
                 row.track,
                 row.distance,
+                row.lastSeen,
                 row.actions
             ]),
             onRowClick: (rowData, index) => {
                 const aircraft = tableData[index];
-                if (aircraft.flight !== "–") {
-                    window.open(this.flightAwareUrl(aircraft.flight), "_blank", "noopener");
-                }
-            }
-        });
-
-        // Add tooltip functionality
-        this.addTooltipHandlers(tableEl, tableData);
-
-        // Replace table content
-        const tbody = this.elements.tbody();
-        const table = tbody.closest('table');
-        if (table && tableEl.querySelector('table')) {
-            table.querySelector('tbody').innerHTML = tableEl.querySelector('tbody').innerHTML;
-        }
-    }
-
-    addTooltipHandlers(tableEl, aircraftData) {
-        const tooltip = ensureTooltip();
-        const rows = tableEl.querySelectorAll('tbody tr');
-
-        rows.forEach((row, index) => {
-            const aircraft = aircraftData[index]._aircraft;
-
-            row.addEventListener("mouseenter", e => {
-                tooltip.textContent = this.makeTooltipText(aircraft);
-                tooltip.style.display = 'block';
-                tooltip.style.visibility = 'visible';
-                positionTooltip(e, tooltip);
-            });
-
-            row.addEventListener("mousemove", e => {
-                positionTooltip(e, tooltip);
-            });
-
-            row.addEventListener("mouseleave", () => {
-                tooltip.style.visibility = '';
-                tooltip.style.display = 'none';
-            });
-        });
-
-        // Global cleanup handlers
-        this.elements.table().addEventListener("mouseleave", () => {
-            tooltip.hidden = true;
-        }, {once: true});
-
-        window.addEventListener("scroll", () => {
-            tooltip.hidden = true;
-        }, {passive: true});
-    }
-
-    async loadAdsb() {
-        try {
-            UIComponents.toggleElement(this.elements.error(), false);
-
-            const data = await apiClient.get(this.endpoint, 'adsb');
-
-            // Handle both null responses and proper data structure
-            let aircraft = [];
-            if (data === null) {
-                console.warn('ADSB API returned empty response');
-                aircraft = [];
-            } else if (Array.isArray(data?.aircraft)) {
-                aircraft = data.aircraft;
-            } else if (Array.isArray(data)) {
-                // Handle case where API returns array directly
-                aircraft = data;
-            } else {
-                console.warn('Unexpected ADSB data structure:', data);
-                aircraft = [];
-            }
-
-            // Update state instead of calling render directly
-            appState.setState('location.adsb', aircraft);
-
-        } catch (error) {
-            console.error("ADSB fetch error:", error);
-            appState.setState('location.adsb', []);
-            UIComponents.toggleElement(this.elements.error(), true);
-            UIComponents.updateContent(this.elements.updated(), "feil ved oppdatering");
-        }
-    }
-}
+                if
