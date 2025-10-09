@@ -136,7 +136,7 @@ export class AISManager {
             };
         });
 
-        const headers = ['Navn', 'Fart', 'Kurs', 'Kallesignal', 'Destinasjon', 'Avstand', ''];
+        // (headers not used because we build the table via direct DOM APIs)
 
         // Find the visible table and tbody
         const table = this.elements.table();
@@ -257,54 +257,72 @@ export class AISManager {
         const realTable = (tableEl instanceof Element && document.contains(tableEl)) ? tableEl : this.elements.table();
         if (!realTable) return;
 
-        // Avoid attaching handlers multiple times
-        if (realTable.dataset.tooltipInitialized === "1") return;
-        realTable.dataset.tooltipInitialized = "1";
-
         const tooltip = ensureTooltip();
+
+        // Add global cleanup handlers only once per table element
+        if (realTable.dataset.tooltipGlobalInit !== '1') {
+            realTable.addEventListener("mouseleave", () => { tooltip.hidden = true; });
+            window.addEventListener("scroll", () => { tooltip.hidden = true; }, {passive: true});
+            realTable.dataset.tooltipGlobalInit = '1';
+        }
+
         const rows = realTable.querySelectorAll('tbody tr');
 
         rows.forEach((row, index) => {
+            // Skip rows that already have handlers attached
+            if (row.dataset.tooltipAttached === '1') return;
+
             // Prefer a vessel reference attached to the row (if available) to avoid index mismatches.
             const vessel = row._vessel || vessels?.[index]?._vessel;
             if (!vessel) return;
 
             const show = (e) => {
-                tooltip.textContent = this.makeTooltipText(vessel);
-                tooltip.style.display = 'block';
-                tooltip.style.visibility = 'visible';
-                positionTooltip(e, tooltip);
-            };
-            const move = (e) => positionTooltip(e, tooltip);
-            const hide = () => {
-                tooltip.style.visibility = '';
-                tooltip.style.display = 'none';
-            };
+                try {
+                    // Debug log to verify handler invocation and vessel identity
+                    console.debug('[AIS] tooltip show', vessel?.mmsi, vessel?.name);
+                } catch (err) { /* ignore logging errors */ }
+                 tooltip.textContent = this.makeTooltipText(vessel);
+                 // Position first (positionTooltip will temporarily show the element to measure),
+                 // then ensure it is visible. This avoids a restore inside positionTooltip that would
+                 // set display back to 'none' and hide the tooltip.
+                 positionTooltip(e, tooltip);
+                 tooltip.style.display = 'block';
+                 tooltip.style.visibility = 'visible';
+             };
+             const move = (e) => positionTooltip(e, tooltip);
+             const hide = () => {
+                 tooltip.style.visibility = '';
+                 tooltip.style.display = 'none';
+             };
 
-            row.addEventListener("mouseenter", show);
-            row.addEventListener("mousemove", move);
-            row.addEventListener("mouseleave", hide);
+             row.addEventListener("mouseenter", show);
+             row.addEventListener("mousemove", move);
+             row.addEventListener("mouseleave", hide);
 
-            // Icon-specific behavior: sanitize the action link and ensure it doesn't propagate row clicks
-            const icon = row.querySelector('.iconbtn');
-            if (icon) {
-                // If the anchor has an href, make sure it's safe. If not safe, remove it.
-                if (icon.href) {
-                    const safe = safeUrlFrom(icon.href, { allowedHosts: ['www.marinetraffic.com', 'marinetraffic.com'] });
-                    if (safe) icon.href = safe; else icon.removeAttribute('href');
-                }
+             // Icon-specific behavior: sanitize the action link and ensure it doesn't propagate row clicks
+             const icon = row.querySelector('.iconbtn');
+             if (icon) {
+                // Debug log to verify icon presence
+                try { console.debug('[AIS] found icon for vessel', vessel?.mmsi); } catch (err) {}
+                 // If the anchor has an href, make sure it's safe. If not safe, remove it.
+                 if (icon.href) {
+                     const safe = safeUrlFrom(icon.href, { allowedHosts: ['www.marinetraffic.com', 'marinetraffic.com'] });
+                     if (safe) icon.href = safe; else icon.removeAttribute('href');
+                 }
 
-                icon.addEventListener("mouseenter", (e) => { e.stopPropagation(); show(e); });
-                icon.addEventListener("mousemove", (e) => { e.stopPropagation(); move(e); });
-                icon.addEventListener("mouseleave", (e) => { e.stopPropagation(); hide(); });
-                icon.addEventListener('click', (ev) => { ev.stopPropagation(); });
-            }
-        });
+-                icon.addEventListener("mouseenter", (e) => { e.stopPropagation(); show(e); });
+-                icon.addEventListener("mousemove", (e) => { e.stopPropagation(); move(e); });
+-                icon.addEventListener("mouseleave", (e) => { e.stopPropagation(); hide(); });
++                icon.addEventListener("mouseenter", (e) => { try { console.debug('[AIS] icon mouseenter', vessel?.mmsi); } catch (err) {} e.stopPropagation(); show(e); });
+                 icon.addEventListener("mousemove", (e) => { e.stopPropagation(); move(e); });
+                 icon.addEventListener("mouseleave", (e) => { e.stopPropagation(); hide(); });
+                 icon.addEventListener('click', (ev) => { ev.stopPropagation(); });
+             }
 
-        // Hide tooltip when leaving the visible table area or on scroll
-        realTable.addEventListener("mouseleave", () => { tooltip.hidden = true; });
-        window.addEventListener("scroll", () => { tooltip.hidden = true; }, {passive: true});
-    }
+             // Mark this row as initialized to avoid duplicate handlers on future renders
+             row.dataset.tooltipAttached = '1';
+         });
+     }
 
     async loadAis() {
         try {
