@@ -239,8 +239,8 @@ export class ADSBManager {
         this.addTooltipHandlers(realTable, tableData);
     }
 
+// Replace both duplicates in `js/adsb-manager.js` with this single implementation
     addTooltipHandlers(tableEl, aircraftData) {
-        // Avoid attaching handlers multiple times
         if (!tableEl || tableEl.dataset.tooltipInitialized === "1") return;
         tableEl.dataset.tooltipInitialized = "1";
 
@@ -248,11 +248,12 @@ export class ADSBManager {
         const rows = tableEl.querySelectorAll('tbody tr');
 
         rows.forEach((row, index) => {
-            const aircraft = aircraftData[index]?._aircraft;
+            // Prefer the aircraft stored on the element (robust if rows were moved/reordered)
+            const aircraft = row._aircraft || aircraftData?.[index]?._aircraft;
             if (!aircraft) return;
 
             const show = (e) => {
-                tooltip.textContent = this.makeTooltipText(aircraft); // keep as textContent
+                tooltip.textContent = this.makeTooltipText(aircraft);
                 tooltip.style.display = 'block';
                 tooltip.style.visibility = 'visible';
                 positionTooltip(e, tooltip);
@@ -269,58 +270,15 @@ export class ADSBManager {
 
             const icon = row.querySelector('.iconbtn');
             if (icon) {
-                icon.addEventListener("mouseenter", (e) => {
-                    e.stopPropagation();
-                    show(e);
-                });
-                icon.addEventListener("mousemove", (e) => {
-                    e.stopPropagation();
-                    move(e);
-                });
-                icon.addEventListener("mouseleave", (e) => {
-                    e.stopPropagation();
-                    hide();
-                });
+                icon.addEventListener("mouseenter", (e) => { e.stopPropagation(); show(e); });
+                icon.addEventListener("mousemove", (e) => { e.stopPropagation(); move(e); });
+                icon.addEventListener("mouseleave", (e) => { e.stopPropagation(); hide(); });
             }
         });
 
-        // Hide tooltip when leaving the visible table area or on scroll
-        const realTable = this.elements.table();
-        if (realTable) {
-            realTable.addEventListener("mouseleave", () => {
-                tooltip.hidden = true;
-            });
-        }
-
-        window.addEventListener("scroll", () => {
-            tooltip.hidden = true;
-        }, {passive: true});
+        tableEl.addEventListener("mouseleave", () => { tooltip.hidden = true; });
+        window.addEventListener("scroll", () => { tooltip.hidden = true; }, {passive: true});
     }
-
-
-    addTooltipHandlers(tableEl, aircraftData) {
-        const tooltip = ensureTooltip();
-        const rows = tableEl.querySelectorAll('tbody tr');
-
-        rows.forEach((row, index) => {
-            const aircraft = aircraftData[index]._aircraft;
-
-            row.addEventListener("mouseenter", e => {
-                tooltip.textContent = this.makeTooltipText(aircraft);
-                tooltip.style.display = 'block';
-                tooltip.style.visibility = 'visible';
-                positionTooltip(e, tooltip);
-            });
-
-            row.addEventListener("mousemove", e => {
-                positionTooltip(e, tooltip);
-            });
-
-            row.addEventListener("mouseleave", () => {
-                tooltip.style.visibility = '';
-                tooltip.style.display = 'none';
-            });
-        });
 
         // Global cleanup handlers
         this.elements.table().addEventListener("mouseleave", () => {
@@ -339,7 +297,7 @@ export class ADSBManager {
             const data = await apiClient.get(this.endpoint, 'adsb');
 
             // Handle both null responses and proper data structure
-            let aircraft = [];
+            let aircraft;
             if (data === null) {
                 console.warn('ADSB API returned empty response');
                 aircraft = [];
