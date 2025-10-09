@@ -6,7 +6,6 @@ import {apiClient} from './api-client.js';
 import {UIComponents} from './ui-components.js';
 import {visibilityManager} from './visibility-manager.js';
 
-
 export class ADSBManager {
     constructor() {
         this.endpoint = CONFIG.ENDPOINTS.ADSB;

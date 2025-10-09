@@ -2,6 +2,7 @@
 import { CONFIG } from './constants.js';
 import { bust, humanAge } from './utils.js';
 import { visibilityManager } from './visibility-manager.js';
+import { apiClient } from './api-client.js';
 
 export class ImageManager {
     constructor() {
@@ -48,18 +49,11 @@ export class ImageManager {
 
     async updateImageCaptureTime() {
         try {
-            const res = await fetch('/image_metadata_proxy.php', {
-                method: 'GET',
-                cache: 'no-cache'
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                if (data.success && data.lastModified) {
-                    const t = new Date(data.lastModified).getTime();
-                    if (Number.isFinite(t)) {
-                        this.imageCaptureTs = t;
-                    }
+            const data = await apiClient.get(CONFIG.ENDPOINTS.IMAGE_METADATA);
+            if (data && data.success && data.lastModified) {
+                const t = new Date(data.lastModified).getTime();
+                if (Number.isFinite(t)) {
+                    this.imageCaptureTs = t;
                 }
             }
         } catch (e) {
