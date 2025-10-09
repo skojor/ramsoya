@@ -77,7 +77,6 @@ export class ADSBManager {
         };
 
         // Prefer already-computed/normalized fields from the tableData row
-        const flight = (a.flight && a.flight !== '–') ? a.flight : (raw.callsign || raw.flight || '');
         const rawFlightCandidate = (a.flight && a.flight !== '–') ? a.flight : (raw.callsign || raw.flight || '');
         const flight = (typeof rawFlightCandidate === 'string' && rawFlightCandidate.trim()) ? rawFlightCandidate.trim() : '–';
         const airline = (a.airline && a.airline !== '–') ? a.airline : (raw.airline || '–');
@@ -270,9 +269,9 @@ export class ADSBManager {
             // Actions cell is the last td
             const actionsTd = tr.lastElementChild;
 
-            const flight = tableData[idx]?.flight;
-            if (flight && flight !== "–") {
-                const url = safeUrlFrom(this.flightAwareUrl(flight), {
+            const flightVal = tableData[idx]?.flight;
+            if (flightVal && flightVal !== "–") {
+                const url = safeUrlFrom(this.flightAwareUrl(flightVal), {
                     allowedHosts: ['www.flightaware.com', 'flightaware.com']
                 });
 

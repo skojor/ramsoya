@@ -8,6 +8,9 @@ export class SolarManager {
     constructor() {
         this.nextSunEventEl = document.getElementById("nextSunEvent");
 
+        // Cache last solar payload to avoid re-rendering identical data
+        this._lastSolarJson = null;
+
         // Subscribe to state changes
         this.setupStateSubscriptions();
     }
@@ -15,6 +18,11 @@ export class SolarManager {
     setupStateSubscriptions() {
         // Update UI when solar data changes
         appState.subscribe('astronomy.solar', (solarData) => {
+            // Skip rendering if payload hasn't changed (prevents flicker on tab activation)
+            const json = solarData ? JSON.stringify(solarData) : null;
+            if (json === this._lastSolarJson) return;
+            this._lastSolarJson = json;
+
             if (solarData) {
                 this.renderSolarEvents(solarData);
             } else {

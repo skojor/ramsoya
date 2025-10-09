@@ -66,9 +66,21 @@ export class WeatherApp {
     }
 
     setupEventListeners() {
-        // Refresh data when window regains focus
+
         window.addEventListener("focus", () => {
-            this.triggerInitialLoads();
+            // Refresh image, weather, moon and forecast but avoid calling solarManager.loadSunriseSunset()
+            try {
+                this.imageManager.refreshImage();
+            } catch (err) { /* ignore */ }
+            try {
+                this.weatherManager.fetchWeather();
+            } catch (err) { /* ignore */ }
+            try {
+                this.moonManager.fetchMoon();
+            } catch (err) { /* ignore */ }
+            try {
+                this.forecastManager.loadForecastHourly();
+            } catch (err) { /* ignore */ }
         });
 
         // Cleanup intervals on unload
