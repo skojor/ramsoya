@@ -3,6 +3,7 @@ import { CONFIG } from './constants.js';
 import { appState } from './state-manager.js';
 import { UIComponents } from './ui-components.js';
 import { visibilityManager } from './visibility-manager.js';
+import { ApiClient } from './api-client.js';
 
 export class TidalManager {
     constructor() {
@@ -14,6 +15,8 @@ export class TidalManager {
             tideNext1: () => document.getElementById('tideNext1'),
             tideNext2: () => document.getElementById('tideNext2')
         };
+
+        this.apiClient = new ApiClient();
 
         this.setupStateSubscriptions();
         this.init();
@@ -131,26 +134,17 @@ export class TidalManager {
     async loadTidalData() {
         try {
             const url = this.buildTidalUrl();
-
-            // Use direct fetch since tidal API returns XML/text, not JSON
-            const response = await fetch(url, { cache: 'no-store' });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const responseText = await response.text();
-
+            // Use apiClient to fetch tidal data (returns text, not JSON)
+            const responseText = await this.apiClient.get(url, 'tidal');
 
             // Handle both null responses and text responses
-            let tidalEvents = [];
+            let tidalEvents;
             if (!responseText || responseText.trim().length === 0) {
                 console.warn('Tidal API returned empty response');
                 tidalEvents = [];
             } else {
                 // Parse tidal data from XML/text response
                 tidalEvents = this.parseTidalResponse(responseText);
-
             }
 
             if (tidalEvents && tidalEvents.length > 0) {
@@ -216,8 +210,14 @@ export class TidalManager {
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(responseText, 'text/xml');
 
+            // Check for <waterlevel> elements
+            const waterlevelElements = xmlDoc.querySelectorAll('waterlevel');
+            if (waterlevelElements.length === 0) {
+                console.warn('Tidal: No <waterlevel> elements found in XML response. Root element:', xmlDoc.documentElement.tagName);
+            }
+
             // Use the exact same approach as the original working code
-            const items = Array.from(xmlDoc.querySelectorAll('waterlevel')).map(el => ({
+            const items = Array.from(waterlevelElements).map(el => ({
                 type: el.getAttribute('type') ?? el.getAttribute('flag') ?? el.getAttribute('kind') ?? el.getAttribute('tide'),
                 time: new Date(el.getAttribute('time')),
                 cm: Number(el.getAttribute('value'))
@@ -237,8 +237,5 @@ export class TidalManager {
         return events.sort((a, b) => a.time - b.time);
     }
 
-    parseXmlWithRegex(responseText) {
-        // Remove this fallback method since the original approach should work
-        return [];
-    }
+
 }

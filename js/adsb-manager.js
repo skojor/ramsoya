@@ -1,10 +1,10 @@
 // ADSB aircraft tracking management
-import { CONFIG } from './constants.js';
-import { ensureTooltip, positionTooltip } from './tooltip-helpers.js';
-import { appState } from './state-manager.js';
-import { apiClient } from './api-client.js';
-import { UIComponents } from './ui-components.js';
-import { visibilityManager } from './visibility-manager.js';
+import {CONFIG} from './constants.js';
+import {ensureTooltip, positionTooltip} from './tooltip-helpers.js';
+import {appState} from './state-manager.js';
+import {apiClient} from './api-client.js';
+import {UIComponents} from './ui-components.js';
+import {visibilityManager} from './visibility-manager.js';
 
 export class ADSBManager {
     constructor() {
@@ -142,16 +142,16 @@ export class ADSBManager {
                 flight: flightNumber,
                 airline: airline,
                 altitude: (typeof a.alt_ft === "number") ? `${a.alt_ft}` :
-                         (typeof a.alt_baro === "number") ? `${a.alt_baro}` :
-                         (typeof a.altitude === "number") ? `${a.altitude}` : "–",
+                    (typeof a.alt_baro === "number") ? `${a.alt_baro}` :
+                        (typeof a.altitude === "number") ? `${a.altitude}` : "–",
                 speed: (typeof a.spd_kn === "number") ? a.spd_kn.toFixed(1) :
-                       (typeof a.gs === "number") ? a.gs.toFixed(1) :
-                       (typeof a.speed === "number") ? a.speed.toFixed(1) : "–",
+                    (typeof a.gs === "number") ? a.gs.toFixed(1) :
+                        (typeof a.speed === "number") ? a.speed.toFixed(1) : "–",
                 track: (a.track_deg != null) ? `${a.track_deg}°` :
-                       (a.track != null) ? `${a.track}°` : "–",
+                    (a.track != null) ? `${a.track}°` : "–",
                 distance: (typeof a.dist_nm === "number") ? a.dist_nm.toFixed(1) :
-                         (typeof a.distance_nm === "number") ? a.distance_nm.toFixed(1) :
-                         (typeof a.distance_km === "number") ? (a.distance_km / 1.852).toFixed(1) : "–",
+                    (typeof a.distance_nm === "number") ? a.distance_nm.toFixed(1) :
+                        (typeof a.distance_km === "number") ? (a.distance_km / 1.852).toFixed(1) : "–",
                 lastSeen: lastSeen,
                 actions: actions,
                 _aircraft: a // Keep reference for tooltip
