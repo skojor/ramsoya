@@ -65,13 +65,43 @@ export class ADSBManager {
     }
 
     makeTooltipText(a) {
-        const alt = (typeof a.alt_ft === "number") ? `${a.alt_ft} ft` : "–";
-        const spd = (typeof a.spd_kn === "number") ? `${a.spd_kn.toFixed(1)} kn` : "–";
-        const track = (a.track_deg != null) ? `${a.track_deg}°` : "–";
-        const nm = (typeof a.dist_nm === "number") ? `${a.dist_nm.toFixed(1)} nm` : "–";
-        const vs = (typeof a.vs_fpm === "number") ? `${a.vs_fpm > 0 ? '+' : ''}${a.vs_fpm} fpm` : "–";
+        // Accept either a transformed tableData row or the raw API object. If a.lastSeen is
+        // already present (from tableData), prefer it. Otherwise, fall back to raw.tid parsing.
+        const raw = a._aircraft || a;
 
-        return `Kallesignal: ${a.callsign || "–"}\nFlytype: ${a.aircraft_type || "–"}\nHøyde: ${alt}\nFart: ${spd}\nKurs: ${track}\nStiging: ${vs}\nAvstand: ${nm}\nSist sett: ${a.tid || "–"}`;
+        // Helper to format a Date as HH:mm:ss
+        const fmtTime = (date) => {
+            if (!(date instanceof Date) || isNaN(date)) return "–";
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+        };
+
+        // Prefer already-computed/normalized fields from the tableData row
+        const flight = (a.flight && a.flight !== '–') ? a.flight : (raw.callsign || raw.flight || '–');
+        const airline = (a.airline && a.airline !== '–') ? a.airline : (raw.airline || '–');
+
+        const alt = (a.altitude && a.altitude !== '–') ? `${a.altitude} ft` : (typeof raw.alt_ft === 'number' ? `${raw.alt_ft} ft` : '–');
+        const spd = (a.speed && a.speed !== '–') ? `${a.speed} kn` : (typeof raw.spd_kn === 'number' ? `${raw.spd_kn.toFixed(1)} kn` : '–');
+        const track = (a.track && a.track !== '–') ? a.track : (raw.track_deg != null ? `${raw.track_deg}°` : '–');
+        const nm = (a.distance && a.distance !== '–') ? `${a.distance} nm` : (typeof raw.dist_nm === 'number' ? `${raw.dist_nm.toFixed(1)} nm` : '–');
+        const vs = (raw.vs_fpm != null) ? `${raw.vs_fpm > 0 ? '+' : ''}${raw.vs_fpm} fpm` : '–';
+
+        // lastSeen: prefer preformatted a.lastSeen, else parse raw.tid if present
+        let lastSeen = '–';
+        if (typeof a.lastSeen === 'string' && a.lastSeen !== '–') {
+            lastSeen = a.lastSeen;
+        } else if (raw.tid) {
+            let dateObj = null;
+            if (typeof raw.tid === 'number') {
+                dateObj = new Date(raw.tid * 1000);
+            } else if (typeof raw.tid === 'string') {
+                const parsed = Date.parse(raw.tid);
+                if (!isNaN(parsed)) dateObj = new Date(parsed);
+            }
+            if (dateObj instanceof Date && !isNaN(dateObj)) lastSeen = fmtTime(dateObj);
+        }
+
+        return `Flight: ${flight}\nFlyselskap: ${airline}\nKallesignal: ${raw.callsign || '–'}\nFlytype: ${raw.aircraft_type || '–'}\nHøyde: ${alt}\nFart: ${spd}\nKurs: ${track}\nStiging: ${vs}\nAvstand: ${nm}\nSist sett: ${lastSeen}`;
     }
 
     flightAwareUrl(callsign) {
@@ -199,8 +229,9 @@ export class ADSBManager {
 
         // Move rows over and populate the actions cell via DOM APIs
         Array.from(tmpTbody.querySelectorAll('tr')).forEach((tr, idx) => {
-            // Attach reference for tooltip logic
-            tr._aircraft = tableData[idx]?._aircraft;
+            // Attach reference for tooltip logic — use the transformed tableData entry so tooltips
+            // receive normalized fields like `flight`, `airline` and formatted `lastSeen`.
+            tr._aircraft = tableData[idx];
 
             // Actions cell is the last td
             const actionsTd = tr.lastElementChild;
