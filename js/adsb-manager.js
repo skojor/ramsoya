@@ -251,11 +251,13 @@ export class ADSBManager {
             const aircraft = row._aircraft || aircraftData?.[index]?._aircraft;
             if (!aircraft) return;
 
+            // Show: set content, position first (which may temporarily show for measurement),
+            // then ensure it's visible so it doesn't get hidden by positionTooltip internals.
             const show = (e) => {
                 tooltip.textContent = this.makeTooltipText(aircraft);
+                positionTooltip(e, tooltip);
                 tooltip.style.display = 'block';
                 tooltip.style.visibility = 'visible';
-                positionTooltip(e, tooltip);
             };
             const move = (e) => positionTooltip(e, tooltip);
             const hide = () => {
