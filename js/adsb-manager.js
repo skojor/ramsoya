@@ -84,7 +84,36 @@ export class ADSBManager {
         const spd = (a.speed && a.speed !== '–') ? `${a.speed} kn` : (typeof raw.spd_kn === 'number' ? `${raw.spd_kn.toFixed(1)} kn` : '–');
         const track = (a.track && a.track !== '–') ? a.track : (raw.track_deg != null ? `${raw.track_deg}°` : '–');
         const nm = (a.distance && a.distance !== '–') ? `${a.distance} nm` : (typeof raw.dist_nm === 'number' ? `${raw.dist_nm.toFixed(1)} nm` : '–');
-        const vs = (raw.vs_fpm != null) ? `${raw.vs_fpm > 0 ? '+' : ''}${raw.vs_fpm} fpm` : '–';
+
+        // Callsign (kjennetegn) — try several common property names
+        const callsignCandidates = [raw.callsign, raw.registration, raw.reg, raw.icao, raw.icao24, raw.kjennetegn];
+        const callsign = callsignCandidates.find(v => typeof v === 'string' && v.trim()) || '–';
+
+        // Aircraft type (flytype) — try several common property names
+        const atypeCandidates = [raw.aircraft_type, raw.type, raw.model, raw.aircrafttype, raw.plane_type];
+        const aircraftType = atypeCandidates.find(v => typeof v === 'string' && v.trim()) || '–';
+
+        // Vertical speed / climb (stigning) — detect units and format both fpm and m/s when possible
+        let climb = '–';
+        const vsCandidates = [raw.vs_fpm, raw.vs, raw.vsi, raw.vertical_rate, raw.vr, raw.vspeed];
+        let vsVal = null;
+        for (const c of vsCandidates) {
+            if (typeof c === 'number' && !isNaN(c)) { vsVal = c; break; }
+        }
+        // If we found a numeric vertical speed, try to infer units:
+        if (typeof vsVal === 'number') {
+            // If value is small (abs < 50) it's likely meters/sec; treat as m/s and convert to fpm.
+            if (Math.abs(vsVal) < 50) {
+                const fpm = Math.round(vsVal * 196.850393701);
+                const ms = (vsVal).toFixed(1);
+                climb = `${fpm > 0 ? '+' : ''}${fpm} fpm (${ms} m/s)`;
+            } else {
+                // Otherwise assume it's already fpm
+                const fpm = Math.round(vsVal);
+                const ms = (fpm / 196.850393701).toFixed(1);
+                climb = `${fpm > 0 ? '+' : ''}${fpm} fpm (${ms} m/s)`;
+            }
+        }
 
         // lastSeen: prefer preformatted a.lastSeen, else parse raw.tid if present
         let lastSeen = '–';
@@ -101,7 +130,8 @@ export class ADSBManager {
             if (dateObj instanceof Date && !isNaN(dateObj)) lastSeen = fmtTime(dateObj);
         }
 
-        return `Flight: ${flight}\nFlyselskap: ${airline}\nKallesignal: ${raw.callsign || '–'}\nFlytype: ${raw.aircraft_type || '–'}\nHøyde: ${alt}\nFart: ${spd}\nKurs: ${track}\nStiging: ${vs}\nAvstand: ${nm}\nSist sett: ${lastSeen}`;
+        // Use Norwegian labels for the fields the user asked for (kjennetegn, flytype, stigning)
+        return `Flight: ${flight}\nFlyselskap: ${airline}\nKjennetegn: ${callsign}\nFlytype: ${aircraftType}\nHøyde: ${alt}\nFart: ${spd}\nKurs: ${track}\nStigning: ${climb}\nAvstand: ${nm}\nSist sett: ${lastSeen}`;
     }
 
     flightAwareUrl(callsign) {
