@@ -1,6 +1,6 @@
 // AIS vessel tracking management
 import { CONFIG } from './constants.js';
-import { ensureTooltip } from './utils.js';
+import { ensureTooltip, positionTooltip, safeUrlFrom } from './utils.js';
 import { appState } from './state-manager.js';
 import { apiClient } from './api-client.js';
 import { UIComponents } from './ui-components.js';
@@ -155,49 +155,70 @@ export class AISManager {
             }
         });
 
-        // Add tooltip functionality to table
-        this.addTooltipHandlers(tableEl, tableData);
-
         // Replace table content
         const tbody = this.elements.tbody();
         const table = tbody.closest('table');
         if (table && tableEl.querySelector('table')) {
             table.querySelector('tbody').innerHTML = tableEl.querySelector('tbody').innerHTML;
+            // Attach handlers to the real DOM table after we've replaced the rows
+            this.addTooltipHandlers(table, tableData);
         }
     }
 
     addTooltipHandlers(tableEl, vessels) {
+        // Determine the real visible table element. If tableEl is detached (created by UIComponents.createTable),
+        // use the actual table in the DOM returned by this.elements.table(). This ensures event listeners are
+        // attached to the nodes the user interacts with.
+        const realTable = (tableEl instanceof Element && document.contains(tableEl)) ? tableEl : this.elements.table();
+        if (!realTable) return;
+
+        // Avoid attaching handlers multiple times
+        if (realTable.dataset.tooltipInitialized === "1") return;
+        realTable.dataset.tooltipInitialized = "1";
+
         const tooltip = ensureTooltip();
-        const rows = tableEl.querySelectorAll('tbody tr');
+        const rows = realTable.querySelectorAll('tbody tr');
 
         rows.forEach((row, index) => {
-            const vessel = vessels[index]._vessel;
+            // Prefer a vessel reference attached to the row (if available) to avoid index mismatches.
+            const vessel = row._vessel || vessels?.[index]?._vessel;
+            if (!vessel) return;
 
-            row.addEventListener("mouseenter", e => {
+            const show = (e) => {
                 tooltip.textContent = this.makeTooltipText(vessel);
                 tooltip.style.display = 'block';
                 tooltip.style.visibility = 'visible';
                 positionTooltip(e, tooltip);
-            });
-
-            row.addEventListener("mousemove", e => {
-                positionTooltip(e, tooltip);
-            });
-
-            row.addEventListener("mouseleave", () => {
+            };
+            const move = (e) => positionTooltip(e, tooltip);
+            const hide = () => {
                 tooltip.style.visibility = '';
                 tooltip.style.display = 'none';
-            });
+            };
+
+            row.addEventListener("mouseenter", show);
+            row.addEventListener("mousemove", move);
+            row.addEventListener("mouseleave", hide);
+
+            // Icon-specific behavior: sanitize the action link and ensure it doesn't propagate row clicks
+            const icon = row.querySelector('.iconbtn');
+            if (icon) {
+                // If the anchor has an href, make sure it's safe. If not safe, remove it.
+                if (icon.href) {
+                    const safe = safeUrlFrom(icon.href, { allowedHosts: ['www.marinetraffic.com', 'marinetraffic.com'] });
+                    if (safe) icon.href = safe; else icon.removeAttribute('href');
+                }
+
+                icon.addEventListener("mouseenter", (e) => { e.stopPropagation(); show(e); });
+                icon.addEventListener("mousemove", (e) => { e.stopPropagation(); move(e); });
+                icon.addEventListener("mouseleave", (e) => { e.stopPropagation(); hide(); });
+                icon.addEventListener('click', (ev) => { ev.stopPropagation(); });
+            }
         });
 
-        // Global handlers for cleanup
-        this.elements.table().addEventListener("mouseleave", () => {
-            tooltip.hidden = true;
-        }, {once: true});
-
-        window.addEventListener("scroll", () => {
-            tooltip.hidden = true;
-        }, {passive: true});
+        // Hide tooltip when leaving the visible table area or on scroll
+        realTable.addEventListener("mouseleave", () => { tooltip.hidden = true; });
+        window.addEventListener("scroll", () => { tooltip.hidden = true; }, {passive: true});
     }
 
     async loadAis() {
