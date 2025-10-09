@@ -77,7 +77,9 @@ export class ADSBManager {
         };
 
         // Prefer already-computed/normalized fields from the tableData row
-        const flight = (a.flight && a.flight !== '–') ? a.flight : (raw.callsign || raw.flight || '–');
+        const flight = (a.flight && a.flight !== '–') ? a.flight : (raw.callsign || raw.flight || '');
+        const rawFlightCandidate = (a.flight && a.flight !== '–') ? a.flight : (raw.callsign || raw.flight || '');
+        const flight = (typeof rawFlightCandidate === 'string' && rawFlightCandidate.trim()) ? rawFlightCandidate.trim() : '–';
         const airline = (a.airline && a.airline !== '–') ? a.airline : (raw.airline || '–');
 
         const alt = (a.altitude && a.altitude !== '–') ? `${a.altitude} ft` : (typeof raw.alt_ft === 'number' ? `${raw.alt_ft} ft` : '–');
@@ -86,16 +88,18 @@ export class ADSBManager {
         const nm = (a.distance && a.distance !== '–') ? `${a.distance} nm` : (typeof raw.dist_nm === 'number' ? `${raw.dist_nm.toFixed(1)} nm` : '–');
 
         // Callsign (kjennetegn) — try several common property names
-        const callsignCandidates = [raw.callsign, raw.registration, raw.reg, raw.icao, raw.icao24, raw.kjennetegn];
-        const callsign = callsignCandidates.find(v => typeof v === 'string' && v.trim()) || '–';
+        const callsignCandidates = [raw.callsign, raw.flight, raw.registration, raw.reg, raw.icao, raw.icao24, raw.kjennetegn];
+        const callsignRaw = callsignCandidates.find(v => typeof v === 'string' && v.trim());
+        const callsign = callsignRaw ? callsignRaw.trim() : '–';
 
         // Aircraft type (flytype) — try several common property names
         const atypeCandidates = [raw.aircraft_type, raw.type, raw.model, raw.aircrafttype, raw.plane_type];
-        const aircraftType = atypeCandidates.find(v => typeof v === 'string' && v.trim()) || '–';
+        const aircraftTypeRaw = atypeCandidates.find(v => typeof v === 'string' && v.trim());
+        const aircraftType = aircraftTypeRaw ? aircraftTypeRaw.trim() : '–';
 
         // Vertical speed / climb (stigning) — detect units and format both fpm and m/s when possible
         let climb = '–';
-        const vsCandidates = [raw.vs_fpm, raw.vs, raw.vsi, raw.vertical_rate, raw.vr, raw.vspeed];
+        const vsCandidates = [raw.baro_rate, raw.geom_rate, raw.vs_fpm, raw.vs, raw.vsi, raw.vertical_rate, raw.vr, raw.vspeed];
         let vsVal = null;
         for (const c of vsCandidates) {
             if (typeof c === 'number' && !isNaN(c)) { vsVal = c; break; }
