@@ -239,7 +239,6 @@ export class ADSBManager {
         this.addTooltipHandlers(realTable, tableData);
     }
 
-// Replace both duplicates in `js/adsb-manager.js` with this single implementation
     addTooltipHandlers(tableEl, aircraftData) {
         if (!tableEl || tableEl.dataset.tooltipInitialized === "1") return;
         tableEl.dataset.tooltipInitialized = "1";
@@ -280,15 +279,6 @@ export class ADSBManager {
         window.addEventListener("scroll", () => { tooltip.hidden = true; }, {passive: true});
     }
 
-        // Global cleanup handlers
-        this.elements.table().addEventListener("mouseleave", () => {
-            tooltip.hidden = true;
-        }, {once: true});
-
-        window.addEventListener("scroll", () => {
-            tooltip.hidden = true;
-        }, {passive: true});
-    }
 
     async loadAdsb() {
         try {
