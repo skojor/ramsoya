@@ -1,6 +1,6 @@
 // AIS vessel tracking management
 import { CONFIG } from './constants.js';
-import { ensureTooltip, positionTooltip } from './tooltip-helpers.js';
+import { ensureTooltip } from './utils.js';
 import { appState } from './state-manager.js';
 import { apiClient } from './api-client.js';
 import { UIComponents } from './ui-components.js';
