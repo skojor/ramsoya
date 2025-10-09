@@ -39,7 +39,7 @@ export const CONFIG = {
     ENDPOINTS: {
         AIS: "/data/getaislist.php",
         ADSB: "/api/adsb_proxy.php",
-        TIDAL: "https://vannstand.kartverket.no/tideapi.php",
+        TIDAL: "/api/kartverket_proxy.php",
         ENTUR: "/api/entur_proxy.php",
         CHARTS: "/data/verdata_split.php",
         IMAGE_METADATA: "/api/image_metadata_proxy.php"
