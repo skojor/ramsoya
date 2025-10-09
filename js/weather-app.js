@@ -25,7 +25,6 @@ export class WeatherApp {
     }
 
     setupSmartIntervals() {
-        // Note: ImageManager now handles its own intervals, so we don't set them up here
 
         // Weather updates - frequent, moderate reduction when hidden
         visibilityManager.setInterval('weather',
@@ -68,7 +67,6 @@ export class WeatherApp {
     setupEventListeners() {
 
         window.addEventListener("focus", () => {
-            // Refresh image, weather, moon and forecast but avoid calling solarManager.loadSunriseSunset()
             try {
                 this.imageManager.refreshImage();
             } catch (err) { /* ignore */ }
