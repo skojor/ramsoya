@@ -1,6 +1,6 @@
 // AIS vessel tracking management
 import { CONFIG } from './constants.js';
-import { ensureTooltip } from './utils.js';
+import { ensureTooltip, positionTooltip, safeUrlFrom } from './utils.js';
 import { appState } from './state-manager.js';
 import { apiClient } from './api-client.js';
 import { UIComponents } from './ui-components.js';
@@ -109,95 +109,201 @@ export class AISManager {
     }
 
     renderTable(vessels) {
-        // Convert vessel data to table format
+        // Convert vessel data to structured objects (no HTML strings)
         const tableData = vessels.map(v => {
             const rawCog = (v.cog ?? v.cog_deg);
             const numCog = Number(rawCog);
-            let cogDisplay = "–";
+            const hasCog = Number.isFinite(numCog);
+            let cog = null;
+            let rot = null;
 
-            if (Number.isFinite(numCog)) {
-                let cog = ((numCog % 360) + 360) % 360;
+            if (hasCog) {
+                cog = ((numCog % 360) + 360) % 360;
                 cog = Math.round(cog);
-                const rot = ((cog - 90) % 360 + 360) % 360;
-                cogDisplay = `<span class="cog-wrap"><svg class="cog-arrow" viewBox="0 0 48 48" aria-label="Kurs ${cog}°" style="transform: rotate(${rot}deg);"><g class="outline"><line x1="8" y1="24" x2="32" y2="24"></line></g><line class="shaft" x1="8" y1="24" x2="32" y2="24"></line><polygon class="head" points="32,16 44,24 32,32 34,24"></polygon></svg><span class="cog-text">${cog}°</span></span>`;
+                rot = ((cog - 90) % 360 + 360) % 360;
             }
-
-            const actions = v.mmsi ? `<a class="iconbtn" href="${this.marineTrafficUrl(v.mmsi)}" target="_blank" rel="noopener" title="Åpne i MarineTraffic" onclick="event.stopPropagation()">${this.iconShip}</a>` : '';
 
             return {
                 name: (v.name && String(v.name).trim()) || "–",
                 speed: (typeof v.spd_kn === "number") ? v.spd_kn.toFixed(1) : "–",
-                course: cogDisplay,
+                cog, // number or null
+                rot, // number or null
                 callsign: (v.callsign && String(v.callsign).trim()) || "–",
                 destination: (v.dest && String(v.dest).trim()) || "–",
                 distance: (typeof v.dist_nm === "number") ? v.dist_nm.toFixed(1) : "–",
-                actions: actions,
-                _vessel: v // Keep reference for tooltip and click handling
+                mmsi: v.mmsi || null,
+                _vessel: v
             };
         });
 
         const headers = ['Navn', 'Fart', 'Kurs', 'Kallesignal', 'Destinasjon', 'Avstand', ''];
 
-        // Create table using UIComponents
-        const tableEl = UIComponents.createTable({
-            headers,
-            rows: tableData.map(row => [
-                row.name,
-                row.speed,
-                row.course,
-                row.callsign,
-                row.destination,
-                row.distance,
-                row.actions
-            ]),
-            onRowClick: (index) => {
-                window.open(CONFIG.EXTERNAL.RAMSOY_ISHIP, "_blank", "noopener");
+        // Find the visible table and tbody
+        const table = this.elements.table();
+        if (!table) return;
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return;
+
+        // Clear existing rows safely
+        while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+
+        // Helper: build the cog element (SVG + text) using safe values
+        const makeCogCell = (cog, rot) => {
+            const td = document.createElement('td');
+            if (cog == null) {
+                td.textContent = '–';
+                return td;
             }
+            const wrap = document.createElement('span');
+            wrap.className = 'cog-wrap';
+
+            // Create SVG via a template (we only inject numeric values into attributes)
+            const svgTpl = document.createElement('template');
+            svgTpl.innerHTML = `<svg class="cog-arrow" viewBox="0 0 48 48" aria-label="Kurs ${cog}°" style="transform: rotate(${rot}deg);"><g class="outline"><line x1="8" y1="24" x2="32" y2="24"></line></g><line class="shaft" x1="8" y1="24" x2="32" y2="24"></line><polygon class="head" points="32,16 44,24 32,32 34,24"></polygon></svg>`;
+            const svgNode = svgTpl.content.firstElementChild ? svgTpl.content.firstElementChild.cloneNode(true) : null;
+            if (svgNode) wrap.appendChild(svgNode);
+
+            const text = document.createElement('span');
+            text.className = 'cog-text';
+            text.textContent = `${cog}°`;
+            wrap.appendChild(text);
+
+            td.appendChild(wrap);
+            return td;
+        };
+
+        // Helper: build plane/ship icon node from trusted constant string
+        const makeIconNode = (iconHtml) => {
+            const tmpl = document.createElement('template');
+            tmpl.innerHTML = iconHtml.trim();
+            return tmpl.content.firstElementChild ? tmpl.content.firstElementChild.cloneNode(true) : null;
+        };
+
+        // Build rows with DOM APIs
+        tableData.forEach((rowData) => {
+            const tr = document.createElement('tr');
+
+            // Name
+            const tdName = document.createElement('td');
+            tdName.textContent = rowData.name;
+            tr.appendChild(tdName);
+
+            // Speed
+            const tdSpeed = document.createElement('td');
+            tdSpeed.textContent = rowData.speed;
+            tr.appendChild(tdSpeed);
+
+            // Course (cog + svg)
+            tr.appendChild(makeCogCell(rowData.cog, rowData.rot));
+
+            // Callsign
+            const tdCall = document.createElement('td');
+            tdCall.textContent = rowData.callsign;
+            tr.appendChild(tdCall);
+
+            // Destination
+            const tdDest = document.createElement('td');
+            tdDest.textContent = rowData.destination;
+            tr.appendChild(tdDest);
+
+            // Distance
+            const tdDist = document.createElement('td');
+            tdDist.textContent = rowData.distance;
+            tr.appendChild(tdDist);
+
+            // Actions cell
+            const tdActions = document.createElement('td');
+            if (rowData.mmsi) {
+                const rawUrl = this.marineTrafficUrl(rowData.mmsi);
+                const safe = safeUrlFrom(rawUrl, { allowedHosts: ['www.marinetraffic.com', 'marinetraffic.com'] });
+                if (safe) {
+                    const a = document.createElement('a');
+                    a.className = 'iconbtn';
+                    a.href = safe;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    a.title = 'Åpne i MarineTraffic';
+
+                    const svg = makeIconNode(this.iconShip);
+                    if (svg) a.appendChild(svg);
+
+                    // Prevent row click when clicking the icon
+                    a.addEventListener('click', (ev) => { ev.stopPropagation(); });
+
+                    tdActions.appendChild(a);
+                }
+            }
+            tr.appendChild(tdActions);
+
+            // Attach reference for tooltip logic
+            tr._vessel = rowData._vessel;
+
+            // Row click behaviour (open external link)
+            tr.addEventListener('click', () => {
+                window.open(CONFIG.EXTERNAL.RAMSOY_ISHIP, '_blank', 'noopener');
+            });
+
+            tbody.appendChild(tr);
         });
 
-        // Add tooltip functionality to table
-        this.addTooltipHandlers(tableEl, tableData);
-
-        // Replace table content
-        const tbody = this.elements.tbody();
-        const table = tbody.closest('table');
-        if (table && tableEl.querySelector('table')) {
-            table.querySelector('tbody').innerHTML = tableEl.querySelector('tbody').innerHTML;
-        }
+        // Attach tooltip handlers to the real table
+        this.addTooltipHandlers(table, tableData);
     }
 
     addTooltipHandlers(tableEl, vessels) {
+        // Determine the real visible table element. If tableEl is detached (created by UIComponents.createTable),
+        // use the actual table in the DOM returned by this.elements.table(). This ensures event listeners are
+        // attached to the nodes the user interacts with.
+        const realTable = (tableEl instanceof Element && document.contains(tableEl)) ? tableEl : this.elements.table();
+        if (!realTable) return;
+
+        // Avoid attaching handlers multiple times
+        if (realTable.dataset.tooltipInitialized === "1") return;
+        realTable.dataset.tooltipInitialized = "1";
+
         const tooltip = ensureTooltip();
-        const rows = tableEl.querySelectorAll('tbody tr');
+        const rows = realTable.querySelectorAll('tbody tr');
 
         rows.forEach((row, index) => {
-            const vessel = vessels[index]._vessel;
+            // Prefer a vessel reference attached to the row (if available) to avoid index mismatches.
+            const vessel = row._vessel || vessels?.[index]?._vessel;
+            if (!vessel) return;
 
-            row.addEventListener("mouseenter", e => {
+            const show = (e) => {
                 tooltip.textContent = this.makeTooltipText(vessel);
                 tooltip.style.display = 'block';
                 tooltip.style.visibility = 'visible';
                 positionTooltip(e, tooltip);
-            });
-
-            row.addEventListener("mousemove", e => {
-                positionTooltip(e, tooltip);
-            });
-
-            row.addEventListener("mouseleave", () => {
+            };
+            const move = (e) => positionTooltip(e, tooltip);
+            const hide = () => {
                 tooltip.style.visibility = '';
                 tooltip.style.display = 'none';
-            });
+            };
+
+            row.addEventListener("mouseenter", show);
+            row.addEventListener("mousemove", move);
+            row.addEventListener("mouseleave", hide);
+
+            // Icon-specific behavior: sanitize the action link and ensure it doesn't propagate row clicks
+            const icon = row.querySelector('.iconbtn');
+            if (icon) {
+                // If the anchor has an href, make sure it's safe. If not safe, remove it.
+                if (icon.href) {
+                    const safe = safeUrlFrom(icon.href, { allowedHosts: ['www.marinetraffic.com', 'marinetraffic.com'] });
+                    if (safe) icon.href = safe; else icon.removeAttribute('href');
+                }
+
+                icon.addEventListener("mouseenter", (e) => { e.stopPropagation(); show(e); });
+                icon.addEventListener("mousemove", (e) => { e.stopPropagation(); move(e); });
+                icon.addEventListener("mouseleave", (e) => { e.stopPropagation(); hide(); });
+                icon.addEventListener('click', (ev) => { ev.stopPropagation(); });
+            }
         });
 
-        // Global handlers for cleanup
-        this.elements.table().addEventListener("mouseleave", () => {
-            tooltip.hidden = true;
-        }, {once: true});
-
-        window.addEventListener("scroll", () => {
-            tooltip.hidden = true;
-        }, {passive: true});
+        // Hide tooltip when leaving the visible table area or on scroll
+        realTable.addEventListener("mouseleave", () => { tooltip.hidden = true; });
+        window.addEventListener("scroll", () => { tooltip.hidden = true; }, {passive: true});
     }
 
     async loadAis() {
