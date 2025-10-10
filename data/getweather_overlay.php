@@ -122,7 +122,7 @@ function fetch_latest(PDO $pdo, string $table, string $label, bool $raw = false)
         $line3 ?: null
     ]));
 
-    if (empty($lines)) $lines = ["Ingen gyldige felt i siste måling"];
+    if (empty($lines)) $lines = ["Ingen data tilgjengelig"];
 
     return ['label' => $label, 'data' => $lines];
 }

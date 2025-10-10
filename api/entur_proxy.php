@@ -184,7 +184,7 @@ class EnturService {
                 'onTimeStatus' => $this->deriveStatus($leg['depCallForStatus'] ?? $call),
                 'mode' => $call['serviceJourney']['line']['transportMode'] ?? 'water',
                 'verified' => false,
-                'fallbackNote' => 'anløp ikke bekreftet'
+                'fallbackNote' => 'bestillingstur'
             ];
         }
 
