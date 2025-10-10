@@ -89,7 +89,7 @@ export class TidalManager {
     }
 
     fmtM(cm) {
-        return (cm / 100).toFixed(2) + ' m';
+        return (cm / 100).toFixed(1) + 'm';
     }
 
     renderTidalData(tidalData) {
