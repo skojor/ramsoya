@@ -65,9 +65,8 @@ export class ADSBManager {
     }
 
     makeTooltipText(a) {
-        // Accept either a transformed tableData row or the raw API object. If a.lastSeen is
-        // already present (from tableData), prefer it. Otherwise, fall back to raw.tid parsing.
-        const raw = a._aircraft || a;
+
+        const raw = a._raw || a;
 
         // Helper to format a Date as HH:mm:ss
         const fmtTime = (date) => {
@@ -85,16 +84,6 @@ export class ADSBManager {
         const spd = (a.speed && a.speed !== '–') ? `${a.speed} kn` : (typeof raw.spd_kn === 'number' ? `${raw.spd_kn.toFixed(1)} kn` : '–');
         const track = (a.track && a.track !== '–') ? a.track : (raw.track_deg != null ? `${raw.track_deg}°` : '–');
         const nm = (a.distance && a.distance !== '–') ? `${a.distance} nm` : (typeof raw.dist_nm === 'number' ? `${raw.dist_nm.toFixed(1)} nm` : '–');
-
-        // Callsign (kjennetegn) — try several common property names
-        const callsignCandidates = [raw.callsign, raw.flight, raw.registration, raw.reg, raw.icao, raw.icao24, raw.kjennetegn];
-        const callsignRaw = callsignCandidates.find(v => typeof v === 'string' && v.trim());
-        const callsign = callsignRaw ? callsignRaw.trim() : '–';
-
-        // Aircraft type (flytype) — try several common property names
-        const atypeCandidates = [raw.aircraft_type, raw.type, raw.model, raw.aircrafttype, raw.plane_type];
-        const aircraftTypeRaw = atypeCandidates.find(v => typeof v === 'string' && v.trim());
-        const aircraftType = aircraftTypeRaw ? aircraftTypeRaw.trim() : '–';
 
         // Vertical speed / climb (stigning) — detect units and format both fpm and m/s when possible
         let climb = '–';
@@ -122,7 +111,7 @@ export class ADSBManager {
         let lastSeen = '–';
         if (typeof a.lastSeen === 'string' && a.lastSeen !== '–') {
             lastSeen = a.lastSeen;
-        } else if (raw.tid) {
+        } else if (raw.tid != null) {
             let dateObj = null;
             if (typeof raw.tid === 'number') {
                 dateObj = new Date(raw.tid * 1000);
@@ -134,12 +123,12 @@ export class ADSBManager {
         }
 
         // Use Norwegian labels for the fields the user asked for (kjennetegn, flytype, stigning)
-        return `Flight: ${flight}\nFlyselskap: ${airline}\nKjennetegn: ${callsign}\nFlytype: ${aircraftType}\nHøyde: ${alt}\nFart: ${spd}\nKurs: ${track}\nStigning: ${climb}\nAvstand: ${nm}\nSist sett: ${lastSeen}`;
+        return `Flight: ${flight}\nFlyselskap: ${airline}\nHøyde: ${alt}\nFart: ${spd}\nKurs: ${track}\nStigning: ${climb}\nAvstand: ${nm}\nSist sett: ${lastSeen}`;
     }
 
-    flightAwareUrl(callsign) {
-        if (!callsign) return null;
-        return `${CONFIG.EXTERNAL.FLIGHT_AWARE}${encodeURIComponent(callsign)}`;
+    flightAwareUrl(flightnr) {
+        if (!flightnr) return null;
+        return `${CONFIG.EXTERNAL.FLIGHT_AWARE}${encodeURIComponent(flightnr)}`;
     }
 
     renderAircraft(aircraft) {
@@ -181,7 +170,7 @@ export class ADSBManager {
             const airline = a.airline || "–";
 
             let lastSeen = "–";
-            if (a.tid) {
+            if (a.tid != null) {
                 let dateObj;
                 if (typeof a.tid === 'number') {
                     dateObj = new Date(a.tid * 1000);
@@ -210,7 +199,9 @@ export class ADSBManager {
                     (typeof a.distance_nm === "number") ? a.distance_nm.toFixed(1) :
                         (typeof a.distance_km === "number") ? (a.distance_km / 1.852).toFixed(1) : "–",
                 lastSeen,
-                _aircraft: a
+                // Store the raw API object in `_raw` so tooltips can fall back to the original
+                // fields when necessary. This standardizes the shape of the object attached to rows.
+                _raw: a
             };
         });
 
@@ -304,19 +295,27 @@ export class ADSBManager {
     }
 
     addTooltipHandlers(tableEl, aircraftData) {
-        if (!tableEl || tableEl.dataset.tooltipInitialized === "1") return;
-        tableEl.dataset.tooltipInitialized = "1";
+        if (!tableEl) return;
 
         const tooltip = ensureTooltip();
-        const rows = tableEl.querySelectorAll('tbody tr');
 
+        // Global init: attach table-level handlers only once per table
+        if (tableEl.dataset.tooltipGlobalInit !== '1') {
+            tableEl.addEventListener("mouseleave", () => { tooltip.hidden = true; });
+            window.addEventListener("scroll", () => { tooltip.hidden = true; }, {passive: true});
+            tableEl.dataset.tooltipGlobalInit = '1';
+        }
+
+        const rows = tableEl.querySelectorAll('tbody tr');
         rows.forEach((row, index) => {
-            // Prefer the aircraft stored on the element (robust if rows were moved/reordered)
-            const aircraft = row._aircraft || aircraftData?.[index]?._aircraft;
+            // Skip rows that already have handlers attached
+            if (row.dataset.tooltipAttached === '1') return;
+
+            // Prefer the normalized tableData entry attached to the row
+            const aircraft = row._aircraft || aircraftData?.[index];
             if (!aircraft) return;
 
-            // Show: set content, position first (which may temporarily show for measurement),
-            // then ensure it's visible so it doesn't get hidden by positionTooltip internals.
+            // Show: set content, position first (positionTooltip may temporarily show the element), then ensure visible
             const show = (e) => {
                 tooltip.textContent = this.makeTooltipText(aircraft);
                 positionTooltip(e, tooltip);
@@ -338,11 +337,12 @@ export class ADSBManager {
                 icon.addEventListener("mouseenter", (e) => { e.stopPropagation(); show(e); });
                 icon.addEventListener("mousemove", (e) => { e.stopPropagation(); move(e); });
                 icon.addEventListener("mouseleave", (e) => { e.stopPropagation(); hide(); });
+                icon.addEventListener('click', (ev) => { ev.stopPropagation(); });
             }
-        });
 
-        tableEl.addEventListener("mouseleave", () => { tooltip.hidden = true; });
-        window.addEventListener("scroll", () => { tooltip.hidden = true; }, {passive: true});
+            // Mark this row as initialized to avoid duplicate handlers on future renders
+            row.dataset.tooltipAttached = '1';
+        });
     }
 
 
