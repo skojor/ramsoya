@@ -14,7 +14,24 @@ $maxAgeMin = 10;        // max alder på posisjon i minutter
 $limitMmsi = 0;         // for testing (0 = alle)
 // ================
 
-require("../../private/aiscred.php");
+// Ensure PRIVATE_PATH is available via the API bootstrap (defines PRIVATE_PATH)
+require_once __DIR__ . '/../api/lib/bootstrap.php';
+
+// Load credentials (outside webroot). Fail early with a clear JSON error if missing.
+$credFile = rtrim(PRIVATE_PATH, '/\\') . '/aiscred.php';
+if (!file_exists($credFile) || !is_readable($credFile)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Missing AIS credentials file', 'expected' => $credFile]);
+    exit;
+}
+require_once $credFile;
+
+// Validate expected variables from aiscred.php
+if (!isset($dsn, $user, $pass)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'AIS credentials incomplete']);
+    exit;
+}
 
 $options = [
   PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -150,4 +167,3 @@ try {
   http_response_code(500);
   echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
 }
-

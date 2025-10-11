@@ -1,5 +1,22 @@
 <?php
-require("../../private/konfigs.php");
+// Ensure PRIVATE_PATH is defined by the API bootstrap
+require_once __DIR__ . '/../api/lib/bootstrap.php';
+
+// Load DB credentials (outside webroot). Fail early with a clear JSON error if missing.
+$confFile = rtrim(PRIVATE_PATH, '/\\') . '/konfigs.php';
+if (!file_exists($confFile) || !is_readable($confFile)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Missing DB config file', 'expected' => $confFile]);
+    exit;
+}
+require_once $confFile;
+
+// Validate expected DB variables from konfigs.php
+if (!isset($dbHost, $dbName, $dbUser, $dbPass)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'DB configuration incomplete']);
+    exit;
+}
 
 // --- HTTP-headers ---
 header('Content-Type: application/json; charset=utf-8');

@@ -1,8 +1,14 @@
 <?php
+// Ensure bootstrap defaults are loaded so handler can rely on constants like CACHE_TTL
+require_once __DIR__ . '/../lib/bootstrap.php';
+require_once __DIR__ . '/../lib/HttpClient.php';
+
+use Ramsoya\Api\Lib\HttpClient;
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 
-// Default location (Ramsøya)
+// Default location (Ramsøy)
 $default_lat = 64.33;
 $default_lon = 10.41;
 $default_radius = 100; // km
@@ -127,24 +133,13 @@ try {
     // Construct the full aircraft data URL
     $aircraft_url = rtrim($base_url, '/') . '/adsb/tar1090/data/aircraft.json';
 
-    $context = stream_context_create([
-        'http' => [
-            'timeout' => 10,
-            'user_agent' => 'Ramsoya ADS-B Proxy',
-            'method' => 'GET',
-            'header' => [
-                'Accept: application/json',
-                'Cache-Control: no-cache'
-            ]
-        ]
-    ]);
-
-    $json_data = file_get_contents($aircraft_url, false, $context);
-    if ($json_data === false) {
-        throw new Exception('Failed to fetch aircraft data from: ' . $aircraft_url);
+    // Use HttpClient
+    $resp = HttpClient::get($aircraft_url, ['Accept: application/json', 'Cache-Control: no-cache'], 10, false);
+    if ($resp['error'] || $resp['code'] >= 400 || $resp['body'] === null) {
+        throw new Exception('Failed to fetch aircraft data from: ' . $aircraft_url . ' - ' . ($resp['error'] ?? 'HTTP ' . $resp['code']));
     }
 
-    $data = json_decode($json_data, true);
+    $data = json_decode($resp['body'], true);
     if (!$data || !isset($data['aircraft'])) {
         throw new Exception('Invalid aircraft data format');
     }
@@ -227,4 +222,3 @@ try {
         'timestamp' => time()
     ]);
 }
-

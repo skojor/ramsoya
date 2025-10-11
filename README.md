@@ -32,12 +32,14 @@ A real-time weather monitoring dashboard for Ramsøyvika, Norway, featuring live
 ```
 /
 ├── index.html              # Main application
-├── api/                    # External API proxies
-│   ├── adsb_proxy.php
-│   ├── entur_proxy.php
-│   ├── image_metadata_proxy.php
-│   ├── met_moon_proxy.php
-│   └── sunrise_proxy.php
+├── api/                    # API endpoint handlers
+│   ├── adsb.php
+│   ├── entur.php
+│   ├── image_metadata.php
+│   ├── kartverket.php
+│   ├── met_forecast.php
+│   ├── met_moon.php
+│   └── sunrise.php
 ├── data/                   # Data processing scripts
 │   ├── getaislist.php
 │   ├── getweather_overlay.php

@@ -1,9 +1,15 @@
 <?php
-// met_moon_proxy.php
+// Ensure bootstrap defaults are loaded so handler can rely on constants like CACHE_TTL
+require_once __DIR__ . '/../lib/bootstrap.php';
+require_once __DIR__ . '/../lib/HttpClient.php';
+
+use Ramsoya\Api\Lib\HttpClient;
+
+// met_moon.php
 // Enhanced proxy for MET Norway Sunrise Moon API with server-side processing
 // © 2025 Skorstad Engineering AS
 
-require("../../private/met_forecastcred.php");
+require __DIR__ . '/../../private/met_forecastcred.php';
 
 // Tillatte query-parametre (whitelist)
 $allowedParams = ['lat','lon','date','offset','elevation','day','to','lang'];
@@ -34,30 +40,22 @@ if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < CACHE_TTL)) {
   exit;
 }
 
-// Hent fra MET
-$ch = curl_init($upstreamUrl);
-curl_setopt_array($ch, [
-  CURLOPT_RETURNTRANSFER => true,
-  CURLOPT_FOLLOWLOCATION => true,
-  CURLOPT_MAXREDIRS => 3,
-  CURLOPT_TIMEOUT => 10,
-  CURLOPT_USERAGENT => 'RamsoyWeatherProxy/1.0 (skorstad.name)',
-  CURLOPT_HTTPHEADER => [
+// Hent fra MET via HttpClient
+$headers = [
     'Accept: application/json',
     'User-Agent: RamsoyWeatherProxy/1.0 (skorstad.name)'
-  ]
-]);
+];
 
-$response = curl_exec($ch);
-$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$error = curl_error($ch);
-curl_close($ch);
+$resp = HttpClient::get($upstreamUrl, $headers, 10, false);
+$httpCode = $resp['code'] ?? 0;
+$error = $resp['error'] ?? null;
+$body = $resp['body'] ?? null;
 
-if ($response === false || $error) {
+if ($body === null || $error) {
   header('Content-Type: application/json; charset=utf-8');
   header('Access-Control-Allow-Origin: *');
   http_response_code(500);
-  echo json_encode(['error' => 'Failed to fetch moon data: ' . $error]);
+  echo json_encode(['error' => 'Failed to fetch moon data: ' . ($error ?? 'HTTP ' . $httpCode)]);
   exit;
 }
 
@@ -65,12 +63,12 @@ if ($httpCode !== 200) {
   header('Content-Type: application/json; charset=utf-8');
   header('Access-Control-Allow-Origin: *');
   http_response_code($httpCode);
-  echo $response;
+  echo $body;
   exit;
 }
 
 // Dekod MET-respons
-$metData = json_decode($response, true);
+$metData = json_decode($body, true);
 if (!$metData) {
   header('Content-Type: application/json; charset=utf-8');
   header('Access-Control-Allow-Origin: *');
@@ -186,7 +184,7 @@ function processMoonData($data): ?array
     $phaseName = getPhaseName($phase);
 
     // Formatér tekst akkurat som originalen: "Voksende • 87%" - NOTHING ELSE
-    $phaseText = sprintf('%s • %d%%', $phaseName, round( $illumination * 100.0));
+    $phaseText = sprintf('%s 	 %d%%', $phaseName, round($illumination * 100.0));
 
     return [
         'svg' => $svg,

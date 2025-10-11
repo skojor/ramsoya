@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require("../../private/weathercred.php");
+require_once __DIR__ . '/../private/weathercred.php';
 
 // ---------- HJELPEFUNKSJONER ----------
 function wdir_to_text(?int $deg): ?string {
