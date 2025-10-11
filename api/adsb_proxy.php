@@ -227,4 +227,4 @@ try {
         'timestamp' => time()
     ]);
 }
-?>
+

@@ -185,7 +185,7 @@ export class EnturManager {
             let fallbackNote = '';
             if (isFallback && !isVerified) {
                 const tooltip = 'title="Entur mangler informasjon om mellomstopp, så anløpet kan ikke bekreftes."';
-                fallbackNote = ` • <span ${tooltip}>anløp ikke bekreftet</span>`;
+                fallbackNote = ` • <span ${tooltip}>bestillingstur</span>`;
             }
 
             // Build the complete line with enhanced status information

@@ -1,5 +1,5 @@
 // Main entry point for the weather application
-import './tooltip-helpers.js';
+import './utils.js';
 import './windbarb-helpers.js';
 import { WeatherApp } from './weather-app.js';
 import { AISManager } from './ais-manager.js';

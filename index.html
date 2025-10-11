@@ -42,7 +42,7 @@
     <div class="astro-row">
         <section class="forecastHourly compact">
             <div class="fcH-head">
-                <div>Neste 24 timer</div>
+                <div>Været neste 24 timer</div>
                 <div class="fcH-note">Oppdateres hver 30. min</div>
             </div>
             <div class="fcH-strip" id="forecastHourly" aria-live="polite"></div>
@@ -58,18 +58,19 @@
                     <div class="sun-loading">Henter soldata...</div>
                 </div>
             </div>
-
-            <div>
-                <svg class="moon-svg" id="moonSvg" viewBox="0 0 120 120" role="img" aria-label="Månefase"></svg>
-                <div class="moon-info">
+            <div class="moon-grid">
+                <div class="moon-box phase-box" aria-label="Månefase">
                     <div class="moon-title">Månefase</div>
-                    <div id="moonText" class="muted">Henter fra MET…</div>
-                    <hr>
+                    <svg class="moon-svg" id="moonSvg" viewBox="0 0 120 120" role="img" aria-label="Månefase"></svg>
+                    <div id="moonText" class="muted moon-desc">Henter fra MET…</div>
+                </div>
+
+                <div class="moon-box tide-box" aria-label="Flo og fjære">
                     <div class="moon-title">Flo og fjære</div>
-                    <div id="tide-next">
-                        <div>Neste: <strong id="tideNext1">—</strong></div>
-                        <div>Deretter: <strong id="tideNext2">—</strong></div>
-                    </div>
+                    <div id="tide-next" class="tide-under-moon">
+                        <div class="tide-row"><div class="tide-value"><strong id="tideNext1">—</strong></div></div>
+                        <div class="tide-row"><div class="tide-value"><strong id="tideNext2">—</strong></div></div>
+                   </div>
                 </div>
             </div>
         </section>

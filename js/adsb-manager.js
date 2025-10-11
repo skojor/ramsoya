@@ -1,10 +1,10 @@
 // ADSB aircraft tracking management
-import { CONFIG } from './constants.js';
-import { ensureTooltip, positionTooltip } from './tooltip-helpers.js';
-import { appState } from './state-manager.js';
-import { apiClient } from './api-client.js';
-import { UIComponents } from './ui-components.js';
-import { visibilityManager } from './visibility-manager.js';
+import {CONFIG} from './constants.js';
+import {ensureTooltip, positionTooltip, safeUrlFrom} from './utils.js';
+import {appState} from './state-manager.js';
+import {apiClient} from './api-client.js';
+import {UIComponents} from './ui-components.js';
+import {visibilityManager} from './visibility-manager.js';
 
 export class ADSBManager {
     constructor() {
@@ -65,18 +65,70 @@ export class ADSBManager {
     }
 
     makeTooltipText(a) {
-        const alt = (typeof a.alt_ft === "number") ? `${a.alt_ft} ft` : "–";
-        const spd = (typeof a.spd_kn === "number") ? `${a.spd_kn.toFixed(1)} kn` : "–";
-        const track = (a.track_deg != null) ? `${a.track_deg}°` : "–";
-        const nm = (typeof a.dist_nm === "number") ? `${a.dist_nm.toFixed(1)} nm` : "–";
-        const vs = (typeof a.vs_fpm === "number") ? `${a.vs_fpm > 0 ? '+' : ''}${a.vs_fpm} fpm` : "–";
 
-        return `Kallesignal: ${a.callsign || "–"}\nFlytype: ${a.aircraft_type || "–"}\nHøyde: ${alt}\nFart: ${spd}\nKurs: ${track}\nStiging: ${vs}\nAvstand: ${nm}\nSist sett: ${a.tid || "–"}`;
+        const raw = a._raw || a;
+
+        // Helper to format a Date as HH:mm:ss
+        const fmtTime = (date) => {
+            if (!(date instanceof Date) || isNaN(date)) return "–";
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+        };
+
+        // Prefer already-computed/normalized fields from the tableData row
+        const rawFlightCandidate = (a.flight && a.flight !== '–') ? a.flight : (raw.callsign || raw.flight || '');
+        const flight = (typeof rawFlightCandidate === 'string' && rawFlightCandidate.trim()) ? rawFlightCandidate.trim() : '–';
+        const airline = (a.airline && a.airline !== '–') ? a.airline : (raw.airline || '–');
+
+        const alt = (a.altitude && a.altitude !== '–') ? `${a.altitude} ft` : (typeof raw.alt_ft === 'number' ? `${raw.alt_ft} ft` : '–');
+        const spd = (a.speed && a.speed !== '–') ? `${a.speed} kn` : (typeof raw.spd_kn === 'number' ? `${raw.spd_kn.toFixed(1)} kn` : '–');
+        const track = (a.track && a.track !== '–') ? a.track : (raw.track_deg != null ? `${raw.track_deg}°` : '–');
+        const nm = (a.distance && a.distance !== '–') ? `${a.distance} nm` : (typeof raw.dist_nm === 'number' ? `${raw.dist_nm.toFixed(1)} nm` : '–');
+
+        // Vertical speed / climb (stigning) — detect units and format both fpm and m/s when possible
+        let climb = '–';
+        const vsCandidates = [raw.baro_rate, raw.geom_rate, raw.vs_fpm, raw.vs, raw.vsi, raw.vertical_rate, raw.vr, raw.vspeed];
+        let vsVal = null;
+        for (const c of vsCandidates) {
+            if (typeof c === 'number' && !isNaN(c)) { vsVal = c; break; }
+        }
+        // If we found a numeric vertical speed, try to infer units:
+        if (typeof vsVal === 'number') {
+            // If value is small (abs < 50) it's likely meters/sec; treat as m/s and convert to fpm.
+            if (Math.abs(vsVal) < 50) {
+                const fpm = Math.round(vsVal * 196.850393701);
+                const ms = (vsVal).toFixed(1);
+                climb = `${fpm > 0 ? '+' : ''}${fpm} fpm (${ms} m/s)`;
+            } else {
+                // Otherwise assume it's already fpm
+                const fpm = Math.round(vsVal);
+                const ms = (fpm / 196.850393701).toFixed(1);
+                climb = `${fpm > 0 ? '+' : ''}${fpm} fpm (${ms} m/s)`;
+            }
+        }
+
+        // lastSeen: prefer preformatted a.lastSeen, else parse raw.tid if present
+        let lastSeen = '–';
+        if (typeof a.lastSeen === 'string' && a.lastSeen !== '–') {
+            lastSeen = a.lastSeen;
+        } else if (raw.tid != null) {
+            let dateObj = null;
+            if (typeof raw.tid === 'number') {
+                dateObj = new Date(raw.tid * 1000);
+            } else if (typeof raw.tid === 'string') {
+                const parsed = Date.parse(raw.tid);
+                if (!isNaN(parsed)) dateObj = new Date(parsed);
+            }
+            if (dateObj instanceof Date && !isNaN(dateObj)) lastSeen = fmtTime(dateObj);
+        }
+
+        // Use Norwegian labels for the fields the user asked for (kjennetegn, flytype, stigning)
+        return `Flight: ${flight}\nFlyselskap: ${airline}\nHøyde: ${alt}\nFart: ${spd}\nKurs: ${track}\nStigning: ${climb}\nAvstand: ${nm}\nSist sett: ${lastSeen}`;
     }
 
-    flightAwareUrl(callsign) {
-        if (!callsign) return null;
-        return `${CONFIG.EXTERNAL.FLIGHT_AWARE}${encodeURIComponent(callsign)}`;
+    flightAwareUrl(flightnr) {
+        if (!flightnr) return null;
+        return `${CONFIG.EXTERNAL.FLIGHT_AWARE}${encodeURIComponent(flightnr)}`;
     }
 
     renderAircraft(aircraft) {
@@ -112,25 +164,19 @@ export class ADSBManager {
     }
 
     renderTable(aircraft) {
-        // Convert aircraft data to table format
+        // Convert aircraft data to table format (no HTML in data)
         const tableData = aircraft.map(a => {
             const flightNumber = a.flight || a.callsign || "–";
             const airline = a.airline || "–";
 
-            const actions = flightNumber !== "–" ?
-                `<a class="iconbtn" href="${this.flightAwareUrl(flightNumber)}" target="_blank" rel="noopener" title="Åpne i FlightAware" onclick="event.stopPropagation()">${this.iconPlane}</a>` : '';
-
-            // Format 'Sist sett' (last seen) as a readable time string if possible
             let lastSeen = "–";
-            if (a.tid) {
+            if (a.tid != null) {
                 let dateObj;
                 if (typeof a.tid === 'number') {
                     dateObj = new Date(a.tid * 1000);
                 } else if (typeof a.tid === 'string') {
                     const parsed = Date.parse(a.tid);
-                    if (!isNaN(parsed)) {
-                        dateObj = new Date(parsed);
-                    }
+                    if (!isNaN(parsed)) dateObj = new Date(parsed);
                 }
                 if (dateObj instanceof Date && !isNaN(dateObj)) {
                     const pad = n => String(n).padStart(2, "0");
@@ -142,26 +188,27 @@ export class ADSBManager {
                 flight: flightNumber,
                 airline: airline,
                 altitude: (typeof a.alt_ft === "number") ? `${a.alt_ft}` :
-                         (typeof a.alt_baro === "number") ? `${a.alt_baro}` :
-                         (typeof a.altitude === "number") ? `${a.altitude}` : "–",
+                    (typeof a.alt_baro === "number") ? `${a.alt_baro}` :
+                        (typeof a.altitude === "number") ? `${a.altitude}` : "–",
                 speed: (typeof a.spd_kn === "number") ? a.spd_kn.toFixed(1) :
-                       (typeof a.gs === "number") ? a.gs.toFixed(1) :
-                       (typeof a.speed === "number") ? a.speed.toFixed(1) : "–",
+                    (typeof a.gs === "number") ? a.gs.toFixed(1) :
+                        (typeof a.speed === "number") ? a.speed.toFixed(1) : "–",
                 track: (a.track_deg != null) ? `${a.track_deg}°` :
-                       (a.track != null) ? `${a.track}°` : "–",
+                    (a.track != null) ? `${a.track}°` : "–",
                 distance: (typeof a.dist_nm === "number") ? a.dist_nm.toFixed(1) :
-                         (typeof a.distance_nm === "number") ? a.distance_nm.toFixed(1) :
-                         (typeof a.distance_km === "number") ? (a.distance_km / 1.852).toFixed(1) : "–",
-                lastSeen: lastSeen,
-                actions: actions,
-                _aircraft: a // Keep reference for tooltip
+                    (typeof a.distance_nm === "number") ? a.distance_nm.toFixed(1) :
+                        (typeof a.distance_km === "number") ? (a.distance_km / 1.852).toFixed(1) : "–",
+                lastSeen,
+                // Store the raw API object in `_raw` so tooltips can fall back to the original
+                // fields when necessary. This standardizes the shape of the object attached to rows.
+                _raw: a
             };
         });
 
-        // Use headers that match the HTML table structure
-        const headers = ['Flight', 'Flyselskap', 'Høyde (ft)', 'Fart (kt)', 'Retning', 'Avstand (nm)', 'Sist sett'];
+        // Add an explicit header for the actions column
+        const headers = ['Flight', 'Flyselskap', 'Høyde (ft)', 'Fart (kt)', 'Retning', 'Avstand (nm)', 'Sist sett', ''];
 
-        // Create table using UIComponents
+        // Build a detached table with text-only cells (no HTML strings)
         const tableEl = UIComponents.createTable({
             headers,
             rows: tableData.map(row => [
@@ -172,60 +219,132 @@ export class ADSBManager {
                 row.track,
                 row.distance,
                 row.lastSeen,
-                row.actions
+                '' // placeholder for the action icon
             ]),
             onRowClick: (rowData, index) => {
-                const aircraft = tableData[index];
-                if (aircraft.flight !== "–") {
-                    window.open(this.flightAwareUrl(aircraft.flight), "_blank", "noopener");
+                const item = tableData[index];
+                if (item.flight === "–") return;
+
+                const url = safeUrlFrom(this.flightAwareUrl(item.flight), {
+                    allowedHosts: ['www.flightaware.com', 'flightaware.com']
+                });
+                if (url) {
+                    const w = window.open(url, "_blank", "noopener,noreferrer");
+                    if (w) w.opener = null;
                 }
             }
         });
 
-        // Add tooltip functionality
-        this.addTooltipHandlers(tableEl, tableData);
-
-        // Replace table content
+        // Replace visible table body without using innerHTML
         const tbody = this.elements.tbody();
-        const table = tbody.closest('table');
-        if (table && tableEl.querySelector('table')) {
-            table.querySelector('tbody').innerHTML = tableEl.querySelector('tbody').innerHTML;
-        }
+        const realTable = tbody ? tbody.closest('table') : null;
+        const tmpTbody = tableEl.querySelector('tbody');
+        if (!tbody || !realTable || !tmpTbody) return;
+
+        // Clear existing rows
+        while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+
+        // Helper to build the plane icon safely (trusted constant)
+        const makePlaneIcon = () => {
+            const tmpl = document.createElement('template');
+            tmpl.innerHTML = this.iconPlane.trim(); // keep as constant; if ever user-provided, sanitize or DOM-build
+            return tmpl.content.firstElementChild ? tmpl.content.firstElementChild.cloneNode(true) : null;
+        };
+
+        // Move rows over and populate the actions cell via DOM APIs
+        Array.from(tmpTbody.querySelectorAll('tr')).forEach((tr, idx) => {
+            // Attach reference for tooltip logic — use the transformed tableData entry so tooltips
+            // receive normalized fields like `flight`, `airline` and formatted `lastSeen`.
+            tr._aircraft = tableData[idx];
+
+            // Actions cell is the last td
+            const actionsTd = tr.lastElementChild;
+
+            const flightVal = tableData[idx]?.flight;
+            if (flightVal && flightVal !== "–") {
+                const url = safeUrlFrom(this.flightAwareUrl(flightVal), {
+                    allowedHosts: ['www.flightaware.com', 'flightaware.com']
+                });
+
+                if (url) {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.className = 'iconbtn';
+                    a.target = "_blank";
+                    a.rel = "noopener noreferrer";
+                    a.title = "Åpne i FlightAware";
+
+                    const svg = makePlaneIcon();
+                    if (svg) a.appendChild(svg);
+
+                    a.addEventListener('click', (ev) => ev.stopPropagation());
+                    actionsTd.appendChild(a);
+                } else {
+                    // No safe URL — leave empty and make row non-clickable feeling if desired
+                    actionsTd.textContent = '';
+                }
+            } else {
+                actionsTd.textContent = '';
+            }
+
+            tbody.appendChild(tr);
+        });
+
+        // Attach handlers to the *real* DOM table
+        this.addTooltipHandlers(realTable, tableData);
     }
 
     addTooltipHandlers(tableEl, aircraftData) {
+        if (!tableEl) return;
+
         const tooltip = ensureTooltip();
+
+        // Global init: attach table-level handlers only once per table
+        if (tableEl.dataset.tooltipGlobalInit !== '1') {
+            tableEl.addEventListener("mouseleave", () => { tooltip.hidden = true; });
+            window.addEventListener("scroll", () => { tooltip.hidden = true; }, {passive: true});
+            tableEl.dataset.tooltipGlobalInit = '1';
+        }
+
         const rows = tableEl.querySelectorAll('tbody tr');
-
         rows.forEach((row, index) => {
-            const aircraft = aircraftData[index]._aircraft;
+            // Skip rows that already have handlers attached
+            if (row.dataset.tooltipAttached === '1') return;
 
-            row.addEventListener("mouseenter", e => {
+            // Prefer the normalized tableData entry attached to the row
+            const aircraft = row._aircraft || aircraftData?.[index];
+            if (!aircraft) return;
+
+            // Show: set content, position first (positionTooltip may temporarily show the element), then ensure visible
+            const show = (e) => {
                 tooltip.textContent = this.makeTooltipText(aircraft);
+                positionTooltip(e, tooltip);
                 tooltip.style.display = 'block';
                 tooltip.style.visibility = 'visible';
-                positionTooltip(e, tooltip);
-            });
-
-            row.addEventListener("mousemove", e => {
-                positionTooltip(e, tooltip);
-            });
-
-            row.addEventListener("mouseleave", () => {
+            };
+            const move = (e) => positionTooltip(e, tooltip);
+            const hide = () => {
                 tooltip.style.visibility = '';
                 tooltip.style.display = 'none';
-            });
+            };
+
+            row.addEventListener("mouseenter", show);
+            row.addEventListener("mousemove", move);
+            row.addEventListener("mouseleave", hide);
+
+            const icon = row.querySelector('.iconbtn');
+            if (icon) {
+                icon.addEventListener("mouseenter", (e) => { e.stopPropagation(); show(e); });
+                icon.addEventListener("mousemove", (e) => { e.stopPropagation(); move(e); });
+                icon.addEventListener("mouseleave", (e) => { e.stopPropagation(); hide(); });
+                icon.addEventListener('click', (ev) => { ev.stopPropagation(); });
+            }
+
+            // Mark this row as initialized to avoid duplicate handlers on future renders
+            row.dataset.tooltipAttached = '1';
         });
-
-        // Global cleanup handlers
-        this.elements.table().addEventListener("mouseleave", () => {
-            tooltip.hidden = true;
-        }, {once: true});
-
-        window.addEventListener("scroll", () => {
-            tooltip.hidden = true;
-        }, {passive: true});
     }
+
 
     async loadAdsb() {
         try {
@@ -234,7 +353,7 @@ export class ADSBManager {
             const data = await apiClient.get(this.endpoint, 'adsb');
 
             // Handle both null responses and proper data structure
-            let aircraft = [];
+            let aircraft;
             if (data === null) {
                 console.warn('ADSB API returned empty response');
                 aircraft = [];

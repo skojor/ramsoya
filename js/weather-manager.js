@@ -95,7 +95,6 @@ export class WeatherManager {
             if (weatherData) {
                 appState.setState('weather.current', weatherData);
                 appState.setState('weather.lastUpdate', Date.now());
-                this.updateStatus();
             } else {
                 console.warn('No weather data received');
                 appState.setState('weather.current', null);
@@ -109,10 +108,5 @@ export class WeatherManager {
             UIComponents.replaceContent(this.overlayEl, errorEl);
             this.overlayEl.hidden = false;
         }
-    }
-
-    updateStatus() {
-        // Update status based on last weather fetch timestamp
-        // This method can be expanded based on requirements
     }
 }

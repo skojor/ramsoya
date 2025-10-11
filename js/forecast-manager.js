@@ -56,7 +56,7 @@ export class ForecastManager {
             return;
         }
 
-        const now = Date.now();
+        const now = Date.now() + 3 * 60 * 60 * 1000; // 4h lookahead to skip past hours with no forecast data
         const upcoming = series.filter(it => new Date(it.time).getTime() >= now);
         const cards = [];
 
