@@ -12,7 +12,9 @@ function parse_db_version($s) {
   return [$isMaria,$maj,$min,$pat];
 }
 
-include("../../private/konfigs.php");
+// Ensure PRIVATE_PATH is defined by the API bootstrap
+require_once __DIR__ . '/../api/lib/bootstrap.php';
+require_once rtrim(PRIVATE_PATH, '/\\') . '/konfigs.php';
 
 try {
   $debug     = isset($_GET['debug']) ? (int)$_GET['debug'] : 0;
@@ -187,6 +189,7 @@ ORDER BY t ASC";
 
   $out = [
     'meta' => [
+      'mariadb'  => $isMaria,
       'db_ver'   => $verStr,
       'method'   => $method,
       'buckets'  => $bucketCount,
@@ -195,11 +198,13 @@ ORDER BY t ASC";
       'interval' => $interval,
       'step_sec' => $step,
       'agg'      => $agg,
+      'fields'   => array_values($fields),
+      'aliases'  => $aliases,
       'points'   => count($rows)
     ],
     'rows' => $rows
   ];
-  if ($debug) $out['debug'] = ['note'=>'split per source'];
+  if ($debug) $out['debug'] = ['sql_preview'=>$sql];
 
   echo json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
   exit;
@@ -208,6 +213,7 @@ ORDER BY t ASC";
   http_response_code(500);
   $err = ['error'=>'Serverfeil'];
   if (!headers_sent()) header('Content-Type: application/json; charset=utf-8');
+  // Alltid vis detalj når debug=1
   if (isset($_GET['debug']) && (int)$_GET['debug'] === 1) {
     $err['detail'] = $e->getMessage();
     $err['trace']  = $e->getTraceAsString();

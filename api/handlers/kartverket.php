@@ -1,7 +1,12 @@
 <?php
+// Ensure bootstrap defaults are loaded so handler can rely on constants like CACHE_TTL
+require_once __DIR__ . '/../lib/bootstrap.php';
+require_once __DIR__ . '/../lib/HttpClient.php';
+
+use Ramsoya\Api\Lib\HttpClient;
+
 declare(strict_types=1);
 
-// kartverket_proxy.php: Proxy for Kartverket tidal data API
 use JetBrains\PhpStorm\NoReturn;
 
 header('Content-Type: application/json; charset=utf-8');
@@ -59,28 +64,24 @@ try {
 } catch (DateMalformedStringException $e) {
 
 }
-$ch = curl_init();
-curl_setopt_array($ch, [
-    CURLOPT_URL => $tidalUrl,
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_TIMEOUT => 10,
-    CURLOPT_CONNECTTIMEOUT => 5,
-    CURLOPT_HTTPHEADER => [
-        'Accept: text/plain, application/xml;q=0.9, */*;q=0.1',
-        'Accept-Language: nb',
-        'User-Agent: TidalProxy/1.0 (+yourdomain)'
-    ],
-]);
-$response = curl_exec($ch);
-$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$error = curl_error($ch);
-curl_close($ch);
 
-if ($response === false || $http_code !== 200) {
-    send_error('Failed to fetch data from Kartverket: ' . $error, 502);
+// Use HttpClient to fetch plain text response
+$resp = HttpClient::get($tidalUrl, [
+    'Accept: text/plain, application/xml;q=0.9, */*;q=0.1',
+    'Accept-Language: nb',
+    'User-Agent: TidalProxy/1.0 (+yourdomain)'
+], 10, false);
+
+$http_code = $resp['code'] ?? 0;
+$error = $resp['error'] ?? null;
+$response = $resp['body'] ?? null;
+
+if ($response === null || $http_code !== 200) {
+    send_error('Failed to fetch data from Kartverket: ' . ($error ?? 'HTTP ' . $http_code), 502);
 }
 
-$lines = preg_split('/\r?\n/', trim($response));
+$lines = preg_split('/\\r?\\n/', trim($response));
+$events = [];
 foreach ($lines as $line) {
     if ($line === '' || str_starts_with($line, '#')) continue; // skip empty/comment
     $parts = explode("\t", $line);
@@ -94,10 +95,10 @@ foreach ($lines as $line) {
     $cm = (float)str_replace(',', '.', $cmRaw);
 
     $events[] = ['time' => $time, 'type' => $type, 'cm' => $cm];
-    usort($events, fn($a,$b) => strcmp($a['time'], $b['time']));
-
 }
 
+// Sort events by time
+usort($events, fn($a,$b) => strcmp($a['time'], $b['time']));
 
 // If no events, try to parse as XML (fallback)
 if (empty($events) && str_contains($response, '<tide>')) {
@@ -124,5 +125,3 @@ if (!empty($events)) {
 } else {
     echo json_encode(['events' => []], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }
-
-
