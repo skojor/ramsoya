@@ -7,7 +7,7 @@ import { ForecastManager } from './forecast-manager.js';
 import { SolarManager } from './solar-manager.js';
 import { visibilityManager } from './visibility-manager.js';
 
-export class WeatherApp {
+export class MainApp {
     constructor() {
         // Managers now initialize themselves and handle their own fetch cycles
         this.imageManager = new ImageManager();

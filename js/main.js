@@ -1,7 +1,7 @@
 // Main entry point for the weather application
 import './utils.js';
 import './windbarb-helpers.js';
-import { WeatherApp } from './weather-app.js';
+import { MainApp } from './main-app.js';
 import { AISManager } from './ais-manager.js';
 import { ADSBManager } from './adsb-manager.js';
 import { TidalManager } from './tidal-manager.js';
@@ -22,12 +22,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize UI components system
     injectComponentStyles();
 
-    // Set app as initialized
+    // Set app as initialized∫
     appState.setState('app.initialized', true);
 
     // Initialize core weather app (handles image, weather, moon, forecast, solar)
-    const weatherApp = new WeatherApp();
-    weatherApp.init();
+    const mainApp = new MainApp();
+    mainApp.init();
 
     // Initialize additional feature managers
     new AISManager();
