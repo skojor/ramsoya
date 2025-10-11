@@ -17,7 +17,7 @@ A real-time weather monitoring dashboard for Ramsøyvika, Norway, featuring live
 
 - **Frontend**: Modern ES6 modules, Chart.js for visualizations
 - **Backend**: PHP proxies for external API integration
-- **Data Sources**: Norwegian Meteorological Institute, Marine Traffic, ADS-B networks, Entur
+- **Data Sources**: Norwegian Meteorological Institute, AIS receiver, ADS-B receiver, Entur
 - **Responsive design** optimized for both desktop and mobile
 
 ## Quick Start
