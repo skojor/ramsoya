@@ -18,16 +18,12 @@ $limitMmsi = 0;         // for testing (0 = alle)
 require_once __DIR__ . '/../api/lib/bootstrap.php';
 
 // Load credentials (outside webroot). Fail early with a clear JSON error if missing.
-$credFile = rtrim(PRIVATE_PATH, '/\\') . '/aiscred.php';
-if (!file_exists($credFile) || !is_readable($credFile)) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Missing AIS credentials file', 'expected' => $credFile]);
-    exit;
-}
-require $credFile;
+$credFile = rtrim(PRIVATE_PATH, '/\\') . '/konfigs.php';
 
-// Validate expected variables from aiscred.php
-if (!isset($dsn, $user, $pass)) {
+include_once $credFile;
+
+// Validate expected variables from credentials file
+if (!isset($dbUser, $dbPass, $dbHost, $dbAis, $dbCharset)) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'AIS credentials incomplete']);
     exit;
@@ -40,7 +36,8 @@ $options = [
 ];
 
 try {
-  $pdo = new PDO($dsn, $user, $pass, $options);
+  $dsn = "mysql:host=$dbHost;dbname=$dbAis;charset=$dbCharset";
+  $pdo = new PDO($dsn, $dbUser, $dbPass, $options);
 
   // 1) MMSI fra "siste døgn"-tabellen
   $sqlMmsi = 'SELECT DISTINCT mmsi FROM stn_25002';
