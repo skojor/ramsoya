@@ -16,12 +16,15 @@ function parse_db_version($s) {
 require_once __DIR__ . '/../api/lib/bootstrap.php';
 
 $konfigfile = rtrim(PRIVATE_PATH, '/\\') . '/konfigs.php';
-if (!file_exists($konfigfile) || !is_readable($konfigfile)) {
+require $konfigfile;
+
+// Validate expected variables from credentials file
+if (!isset($dbUser, $dbPass, $dbHost, $dbAis, $dbCharset)) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Missing konfig file', 'expected' => $konfigfile]);
+    echo json_encode(['success' => false, 'error' => 'AIS credentials incomplete']);
     exit;
 }
-require $konfigfile;
+
 
 try {
   $debug     = isset($_GET['debug']) ? (int)$_GET['debug'] : 0;
