@@ -1,7 +1,15 @@
 <?php
 declare(strict_types=1);
 
-require("../../private/weathercred.php");
+require_once __DIR__ . '/../api/lib/bootstrap.php';
+require_once rtrim(PRIVATE_PATH, '/\\') . '/konfigs.php';
+
+// Validate expected variables from credentials file
+if (!isset($dbUser, $dbPass, $dbHost, $wxSources, $dbCharset, $dbName)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Wx credentials incomplete']);
+    exit;
+}
 
 // ---------- HJELPEFUNKSJONER ----------
 function wdir_to_text(?int $deg): ?string {
@@ -129,15 +137,15 @@ function fetch_latest(PDO $pdo, string $table, string $label, bool $raw = false)
 
 // ---------- HOVED ----------
 try {
-    $dsn = "mysql:host=$DB_HOST;dbname=$DB_NAME;charset=$DB_CHARSET";
-    $pdo = new PDO($dsn, $DB_USER, $DB_PASS, [
+    $dsn = "mysql:host=$dbHost;dbname=$dbName;charset=$dbCharset";
+    $pdo = new PDO($dsn, $dbUser, $dbPass, [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
 
     $raw = isset($_GET['raw']);
     $result = [];
-    foreach ($SOURCES as $table => $label) {
+    foreach ($wxSources as $table => $label) {
         $result[] = fetch_latest($pdo, $table, $label, $raw);
     }
 

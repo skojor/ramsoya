@@ -1,8 +1,14 @@
 <?php
+// Ensure bootstrap defaults are loaded so handler can rely on constants like CACHE_TTL
+require_once __DIR__ . '/../lib/bootstrap.php';
+require_once __DIR__ . '/../lib/HttpClient.php';
+
+use Ramsoya\Api\Lib\HttpClient;
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 
-// Default location (Ramsøya)
+// Default location (Ramsøy)
 $default_lat = 64.33;
 $default_lon = 10.41;
 $default_radius = 100; // km
@@ -13,53 +19,19 @@ $center_lon = isset($_GET['lon']) ? floatval($_GET['lon']) : $default_lon;
 $radius_km = isset($_GET['radius']) ? floatval($_GET['radius']) : $default_radius;
 $max_age = isset($_GET['max_age']) ? intval($_GET['max_age']) : 60; // seconds
 
-// Airline mapping - comprehensive list from original JavaScript code
-$airline_map = [
-    // IATA codes
-    'SK' => 'Scandinavian Airlines (SAS)',
-    'DY' => 'Norwegian',
-    'WF' => 'Widerøe',
-    'KL' => 'KLM',
-    'LH' => 'Lufthansa',
-    'BA' => 'British Airways',
-    'FR' => 'Ryanair',
-    'W6' => 'Wizz Air',
-    'AF' => 'Air France',
-    'AY' => 'Finnair',
-    'BT' => 'airBaltic',
-    'SU' => 'Aeroflot',
-    'TK' => 'Turkish Airlines',
-    'LX' => 'SWISS',
-    'OS' => 'Austrian',
-    'SN' => 'Brussels Airlines',
-    'IB' => 'Iberia',
-    'VY' => 'Vueling',
-    'LO' => 'LOT Polish Airlines',
-    'AZ' => 'ITA Airways',
-    'EZY' => 'easyJet', // ICAO-style code sometimes seen in callsign
-    'U2' => 'easyJet',
-
-    // ICAO codes
-    'SAS' => 'Scandinavian Airlines',
-    'NAX' => 'Norwegian Air Shuttle',
-    'WIF' => 'Widerøe',
-    'KLM' => 'KLM',
-    'DLH' => 'Lufthansa',
-    'BAW' => 'British Airways',
-    'RYR' => 'Ryanair',
-    'AFR' => 'Air France',
-    'FIN' => 'Finnair',
-    'BTI' => 'airBaltic',
-    'THY' => 'Turkish Airlines',
-    'SWR' => 'SWISS',
-    'AUA' => 'Austrian',
-    'IBE' => 'Iberia',
-    'VLG' => 'Vueling',
-    'LOT' => 'LOT Polish Airlines',
-    'ITY' => 'ITA Airways',
-    'NOZ' => 'Norwegian',
-    'NSZ' => 'Norwegian'
-];
+// Load airline mapping from data/airlines.json (fall back to empty map if not present).
+$airline_map = [];
+$airlines_json = realpath(__DIR__ . '/../../data/airlines.json') ?: (__DIR__ . '/../../data/airlines.json');
+if (is_readable($airlines_json)) {
+    $content = @file_get_contents($airlines_json);
+    $decoded = $content ? json_decode($content, true) : null;
+    if (is_array($decoded)) {
+        // Normalize keys to uppercase to ensure case-insensitive lookup
+        foreach ($decoded as $k => $v) {
+            $airline_map[strtoupper($k)] = $v;
+        }
+    }
+}
 
 /**
  * Calculate distance between two points using Haversine formula
@@ -94,7 +66,9 @@ function derive_airline($flight) {
     if (empty($flight)) return null;
 
     // Normalize flight code by removing possible suffixes (e.g., /A, .L, etc.)
-    $normalized_flight = preg_replace('/[\/.].*/', '', $flight);
+    $normalized_flight = preg_replace('/[\/\.].*/', '', $flight);
+    // Uppercase to match normalized keys loaded from JSON
+    $normalized_flight = strtoupper($normalized_flight);
 
     // Try 3-letter code first
     $code3 = substr($normalized_flight, 0, 3);
@@ -127,24 +101,13 @@ try {
     // Construct the full aircraft data URL
     $aircraft_url = rtrim($base_url, '/') . '/adsb/tar1090/data/aircraft.json';
 
-    $context = stream_context_create([
-        'http' => [
-            'timeout' => 10,
-            'user_agent' => 'Ramsoya ADS-B Proxy',
-            'method' => 'GET',
-            'header' => [
-                'Accept: application/json',
-                'Cache-Control: no-cache'
-            ]
-        ]
-    ]);
-
-    $json_data = file_get_contents($aircraft_url, false, $context);
-    if ($json_data === false) {
-        throw new Exception('Failed to fetch aircraft data from: ' . $aircraft_url);
+    // Use HttpClient
+    $resp = HttpClient::get($aircraft_url, ['Accept: application/json', 'Cache-Control: no-cache'], 10, false);
+    if ($resp['error'] || $resp['code'] >= 400 || $resp['body'] === null) {
+        throw new Exception('Failed to fetch aircraft data from: ' . $aircraft_url . ' - ' . ($resp['error'] ?? 'HTTP ' . $resp['code']));
     }
 
-    $data = json_decode($json_data, true);
+    $data = json_decode($resp['body'], true);
     if (!$data || !isset($data['aircraft'])) {
         throw new Exception('Invalid aircraft data format');
     }
@@ -227,4 +190,3 @@ try {
         'timestamp' => time()
     ]);
 }
-

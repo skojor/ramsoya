@@ -1,8 +1,13 @@
 <?php
-// met_forecast_proxy.php — Proxy for MET Locationforecast/2.0 compact
+// Ensure bootstrap defaults are loaded so handler can rely on constants like CACHE_TTL
+require_once __DIR__ . '/../lib/bootstrap.php';
+require_once __DIR__ . '/../lib/HttpClient.php';
+
+use Ramsoya\Api\Lib\HttpClient;
+
+// met_forecast.php — Proxy for MET Locationforecast/2.0 compact
 // © deg. Husk å endre app-navn/kontakt!
 
-require("../../private/met_forecastcred.php");
 
 // Tillatte parametre
 $allowed = ['lat','lon','altitude']; // elevation alias
@@ -35,40 +40,28 @@ if (file_exists($file) && time() - filemtime($file) < CACHE_TTL) {
   exit;
 }
 
-// Hent fra MET
-$ch = curl_init($up);
-curl_setopt_array($ch, [
-  CURLOPT_RETURNTRANSFER => true,
-  CURLOPT_FOLLOWLOCATION => true,
-  CURLOPT_TIMEOUT => 12,
-  CURLOPT_CONNECTTIMEOUT => 6,
-  CURLOPT_SSL_VERIFYPEER => true,
-  CURLOPT_HTTPHEADER => [
-    'Accept: application/json',
-    'User-Agent: ' . APP_NAME . ' (' . CONTACT . ')'
-  ],
-  CURLOPT_HEADER => true,
-]);
+// Hent fra MET via HttpClient
+$hdrs_for_request = [
+  'Accept: application/json',
+  'User-Agent: ' . APP_NAME . ' (' . CONTACT . ')'
+];
 
-$resp = curl_exec($ch);
-if ($resp === false) {
+$resp = HttpClient::get($up, $hdrs_for_request, 12, true);
+if ($resp['error'] || $resp['body'] === null) {
   http_response_code(502);
   header('Content-Type: application/json; charset=utf-8');
   header('Access-Control-Allow-Origin: *');
-  echo json_encode(['error'=>'Upstream fetch failed','detail'=>curl_error($ch)], JSON_UNESCAPED_UNICODE);
-  curl_close($ch);
+  echo json_encode(['error'=>'Upstream fetch failed','detail'=>$resp['error'] ?? ('HTTP ' . $resp['code'])], JSON_UNESCAPED_UNICODE);
   exit;
 }
 
-$hsz   = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-$code  = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-$hraw  = substr($resp, 0, $hsz);
-$body  = substr($resp, $hsz);
-curl_close($ch);
+// Split headers and body were handled by HttpClient when includeResponseHeaders=true
+$body = $resp['body'];
+$headersArr = $resp['headers'] ?? [];
 
 // Plukk ut noen overskrifter for viderelevering
 $out = [];
-foreach (explode("\r\n", $hraw) as $line) {
+foreach ($headersArr as $line) {
   if (stripos($line, 'ETag:')===0 ||
       stripos($line, 'Last-Modified:')===0 ||
       stripos($line, 'Expires:')===0 ||
@@ -77,12 +70,12 @@ foreach (explode("\r\n", $hraw) as $line) {
   }
 }
 
-http_response_code($code);
+http_response_code($resp['code'] ?? 200);
 header('Access-Control-Allow-Origin: *');
 header('Content-Type: application/json; charset=utf-8');
 foreach ($out as $h) header($h, false);
 
-if ($code === 200) {
+if (($resp['code'] ?? 0) === 200) {
   json_decode($body);
   if (json_last_error() === JSON_ERROR_NONE) {
     @file_put_contents($file, $body);

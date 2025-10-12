@@ -12,7 +12,19 @@ function parse_db_version($s) {
   return [$isMaria,$maj,$min,$pat];
 }
 
-include("../../private/konfigs.php");
+// Ensure PRIVATE_PATH is defined by the API bootstrap
+require_once __DIR__ . '/../api/lib/bootstrap.php';
+
+$konfigfile = rtrim(PRIVATE_PATH, '/\\') . '/konfigs.php';
+require_once $konfigfile;
+
+// Validate expected variables from credentials file
+if (!isset($dbUser, $dbPass, $dbHost, $dbAis, $dbCharset)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'AIS credentials incomplete']);
+    exit;
+}
+
 
 try {
   $debug     = isset($_GET['debug']) ? (int)$_GET['debug'] : 0;
@@ -25,6 +37,24 @@ try {
   $useCTE    = isset($_GET['use_cte']) ? (int)$_GET['use_cte'] : null;
 
   $aggFn = ['avg'=>'AVG','min'=>'MIN','max'=>'MAX'][$agg] ?? 'AVG';
+
+  // Parse requested fields (same logic as data/verdata.php)
+  $fieldsQ = $_GET['fields'] ?? 'temp,wind_strength,wind_gust';
+  $allCols = [
+    'temp'           => 'temp',
+    'wtemp'          => 'wtemp',
+    'wind_strength'  => 'wind_strength',
+    'wind_gust'      => 'wind_gust',
+    'humidity'       => 'humidity'
+  ];
+  $req = array_filter(array_map('trim', explode(',', strtolower($fieldsQ))));
+  $fields = [];
+  foreach ($req as $k) if (isset($allCols[$k])) $fields[] = $allCols[$k];
+  if (!$fields) $fields = ['temp','wind_strength','wind_gust'];
+
+  // Build aliases (wind_strength -> wind, wind_gust -> gust)
+  $aliases = [];
+  foreach ($fields as $col) $aliases[$col] = ($col === 'wind_strength') ? 'wind' : (($col === 'wind_gust') ? 'gust' : $col);
 
   try { $tz = new DateTimeZone($tzParam); } catch(Throwable $e) { $tz = new DateTimeZone('Europe/Oslo'); }
   $now = new DateTimeImmutable('now', $tz);
@@ -187,6 +217,7 @@ ORDER BY t ASC";
 
   $out = [
     'meta' => [
+      'mariadb'  => $isMaria,
       'db_ver'   => $verStr,
       'method'   => $method,
       'buckets'  => $bucketCount,
@@ -195,11 +226,13 @@ ORDER BY t ASC";
       'interval' => $interval,
       'step_sec' => $step,
       'agg'      => $agg,
+      'fields'   => array_values($fields),
+      'aliases'  => $aliases,
       'points'   => count($rows)
     ],
     'rows' => $rows
   ];
-  if ($debug) $out['debug'] = ['note'=>'split per source'];
+  if ($debug) $out['debug'] = ['sql_preview'=>$sql];
 
   echo json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
   exit;
@@ -208,6 +241,7 @@ ORDER BY t ASC";
   http_response_code(500);
   $err = ['error'=>'Serverfeil'];
   if (!headers_sent()) header('Content-Type: application/json; charset=utf-8');
+  // Alltid vis detalj når debug=1
   if (isset($_GET['debug']) && (int)$_GET['debug'] === 1) {
     $err['detail'] = $e->getMessage();
     $err['trace']  = $e->getTraceAsString();

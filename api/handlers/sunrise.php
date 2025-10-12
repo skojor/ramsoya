@@ -1,4 +1,9 @@
 <?php
+// Ensure bootstrap defaults are loaded so handler can rely on constants like CACHE_TTL
+require_once __DIR__ . '/../lib/bootstrap.php';
+require_once __DIR__ . '/../lib/HttpClient.php';
+
+use Ramsoya\Api\Lib\HttpClient;
 
 // Add error reporting for debugging
 error_reporting(E_ALL);
@@ -42,22 +47,14 @@ class SunriseService
                 'formatted' => 0
             ]);
 
-        $context = stream_context_create([
-            'http' => [
-                'timeout' => 10,
-                'user_agent' => 'Mozilla/5.0 (compatible; SunriseProxy/1.0)'
-            ]
-        ]);
-
-        $response = file_get_contents($url, false, $context);
-
-        if ($response === false) {
-            throw new Exception('Failed to fetch sunrise data from API');
+        $resp = HttpClient::get($url, ['User-Agent: SunriseProxy/1.0'], 10, false);
+        if ($resp['error'] || $resp['body'] === null) {
+            throw new Exception('Failed to fetch sunrise data from API: ' . ($resp['error'] ?? 'HTTP ' . $resp['code']));
         }
 
-        $data = json_decode($response, true);
+        $data = json_decode($resp['body'], true);
 
-        if ($data === null || $data['status'] !== 'OK') {
+        if ($data === null || ($data['status'] ?? '') !== 'OK') {
             throw new Exception('Invalid response from sunrise API');
         }
 

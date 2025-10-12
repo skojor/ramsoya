@@ -7,9 +7,9 @@ export const CONFIG = {
     WEATHER_URL: "/data/getweather_overlay.php",
     IMAGE_INTERVAL_MS: 20_000,
     WEATHER_INTERVAL_MS: 30_000,
-    MOON_URL: "/api/met_moon_proxy.php?lat=64.33&lon=10.41",
-    FORECAST_URL: "/api/met_forecast_proxy.php?lat=64.32785&lon=10.41549",
-    SUNRISE_URL: "/api/sunrise_proxy.php?type=all-events",
+    MOON_URL: "/api/router.php/met_moon?lat=64.33&lon=10.41",
+    FORECAST_URL: "/api/router.php/met_forecast?lat=64.32785&lon=10.41549",
+    SUNRISE_URL: "/api/router.php/sunrise?type=all-events",
     ICON_BASE: "ikoner/yr/",
     TZ_OSLO: "Europe/Oslo",
 
@@ -38,11 +38,11 @@ export const CONFIG = {
     // API endpoints
     ENDPOINTS: {
         AIS: "/data/getaislist.php",
-        ADSB: "/api/adsb_proxy.php",
-        TIDAL: "/api/kartverket_proxy.php",
-        ENTUR: "/api/entur_proxy.php",
+        ADSB: "/api/router.php/adsb",
+        TIDAL: "/api/router.php/kartverket",
+        ENTUR: "/api/router.php/entur",
         CHARTS: "/data/verdata_split.php",
-        IMAGE_METADATA: "/api/image_metadata_proxy.php"
+        IMAGE_METADATA: "/api/router.php/image_metadata"
     },
 
     // ADS-B settings

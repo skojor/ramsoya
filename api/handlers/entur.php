@@ -1,4 +1,10 @@
 <?php
+// Ensure bootstrap defaults are loaded so handler can rely on constants like CACHE_TTL
+require_once __DIR__ . '/../lib/bootstrap.php';
+require_once __DIR__ . '/../lib/HttpClient.php';
+
+use Ramsoya\Api\Lib\HttpClient;
+
 // Add error reporting for debugging
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
@@ -73,7 +79,7 @@ class EnturService {
                     'verified' => true
                 ];
             } else {
-                // Fallback: planned departure with route verification
+                // Fallback: planned departure that verifies it reaches target via journey sequence
                 $fallbackFromSandviks = $this->findPlannedWithLeg($boardSandviks, self::QUAY_RAMSOY);
                 if ($fallbackFromSandviks) {
                     $departures[] = [
@@ -119,14 +125,14 @@ class EnturService {
     private function findBasicUpcoming($boardData) {
         $now = time();
         $calls = $boardData['calls'] ?? [];
-        
+
         foreach ($calls as $call) {
             $depIso = $this->bestDep($call);
             if (!$depIso) continue;
-            
+
             $depTime = strtotime($depIso);
             if ($depTime < $now) continue; // Only future departures
-            
+
             return [
                 'time' => $depIso,
                 'destination' => $this->simplifyText($call['destinationDisplay']['frontText'] ?? ''),
@@ -135,7 +141,7 @@ class EnturService {
                 'verified' => false
             ];
         }
-        
+
         return null;
     }
 
@@ -330,49 +336,32 @@ class EnturService {
         return "Planlagt";
     }
 
+    // Lightweight GraphQL helper using the shared HttpClient
     private function gql($query, $variables = []) {
-        error_log("Making GraphQL request to: " . self::GRAPHQL_URL);
+        $payload = json_encode(['query' => $query, 'variables' => $variables]);
+        $headers = [
+            'Content-Type: application/json',
+            'ET-Client-Name: ' . self::CLIENT_NAME,
+        ];
 
-        $payload = json_encode([
-            'query' => $query,
-            'variables' => $variables
-        ]);
-
-        $context = stream_context_create([
-            'http' => [
-                'method' => 'POST',
-                'header' => [
-                    'Content-Type: application/json',
-                    'ET-Client-Name: ' . self::CLIENT_NAME
-                ],
-                'content' => $payload,
-                'timeout' => 10
-            ]
-        ]);
-
-        error_log("About to make file_get_contents call");
-        $response = file_get_contents(self::GRAPHQL_URL, false, $context);
-
-        if ($response === false) {
-            error_log("GraphQL request failed - no response");
-            throw new Exception('GraphQL request failed - no response received');
+        $resp = HttpClient::post(self::GRAPHQL_URL, $payload, $headers, 10);
+        if (!empty($resp['error'])) {
+            throw new Exception('GraphQL HTTP error: ' . $resp['error']);
+        }
+        if (!isset($resp['body'])) {
+            throw new Exception('Empty response from GraphQL endpoint');
         }
 
-        error_log("GraphQL response received, length: " . strlen($response));
-
-        $data = json_decode($response, true);
+        $data = json_decode($resp['body'], true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            error_log("JSON decode error: " . json_last_error_msg());
-            throw new Exception('Invalid JSON response from GraphQL API');
+            throw new Exception('Invalid JSON response from GraphQL API: ' . json_last_error_msg());
         }
-
         if (isset($data['errors'])) {
             $errorMsg = implode('; ', array_column($data['errors'], 'message'));
-            error_log("GraphQL errors: " . $errorMsg);
             throw new Exception($errorMsg);
         }
 
-        return $data['data'];
+        return $data['data'] ?? [];
     }
 
     private function quayToStopPlace($id) {
