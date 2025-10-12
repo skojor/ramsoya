@@ -16,7 +16,7 @@ function parse_db_version($s) {
 require_once __DIR__ . '/../api/lib/bootstrap.php';
 
 $konfigfile = rtrim(PRIVATE_PATH, '/\\') . '/konfigs.php';
-require $konfigfile;
+require_once $konfigfile;
 
 // Validate expected variables from credentials file
 if (!isset($dbUser, $dbPass, $dbHost, $dbAis, $dbCharset)) {
