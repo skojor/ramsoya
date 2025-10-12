@@ -7,8 +7,10 @@ use Ramsoya\Api\Lib\HttpClient;
 
 // met_forecast.php — Proxy for MET Locationforecast/2.0 compact
 // © deg. Husk å endre app-navn/kontakt!
+const APP_NAME  = 'Ramsøyværet';
+const CONTACT   = 'post@iship.no';
+const CACHE_TTL = 3600; // 60 min
 
-require_private('met_forecastcred.php');
 
 // Tillatte parametre
 $allowed = ['lat','lon','altitude']; // elevation alias
