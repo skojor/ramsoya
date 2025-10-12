@@ -18,7 +18,13 @@ $limitMmsi = 0;         // for testing (0 = alle)
 require_once __DIR__ . '/../api/lib/bootstrap.php';
 
 // Load credentials (outside webroot). Fail early with a clear JSON error if missing.
-require_private('aiscred.php');
+$credFile = rtrim(PRIVATE_PATH, '/\\') . '/aiscred.php';
+if (!file_exists($credFile) || !is_readable($credFile)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Missing AIS credentials file', 'expected' => $credFile]);
+    exit;
+}
+require_once $credFile;
 
 // Validate expected variables from aiscred.php
 if (!isset($dsn, $user, $pass)) {
