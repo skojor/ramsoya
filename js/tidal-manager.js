@@ -4,6 +4,7 @@ import { appState } from './state-manager.js';
 import { UIComponents } from './ui-components.js';
 import { visibilityManager } from './visibility-manager.js';
 import { ApiClient } from './api-client.js';
+import { formatTimeOslo } from './utils.js';
 
 export class TidalManager {
     constructor() {
@@ -26,8 +27,8 @@ export class TidalManager {
             if (tidalData) {
                 this.renderTidalData(tidalData);
             } else {
-                UIComponents.updateContent(this.elements.tideNext1(), '—');
-                UIComponents.updateContent(this.elements.tideNext2(), '—');
+                UIComponents.updateContent(this.elements.tideNext1(), '\u2014');
+                UIComponents.updateContent(this.elements.tideNext2(), '\u2014');
             }
         });
 
@@ -62,30 +63,17 @@ export class TidalManager {
         );
     }
 
-    isoLocal(d) {
-        const p = new Intl.DateTimeFormat('en-GB', {
-            timeZone: 'Europe/Oslo',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-        }).formatToParts(d);
-        const g = t => p.find(x => x.type === t).value;
-        return `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}`;
-    }
-
     norskType(t) {
         if (!t) return "";
         const key = String(t).toLowerCase();
         if (key === 'high' || key === 'flo' || key === 'highwater') return 'Flo';
-        if (key === 'low' || key === 'fjære' || key === 'lowwater') return 'Fjære';
+        if (key === 'low' || key === 'fj\u00e6re' || key === 'lowwater') return 'Fj\u00e6re';
         return key;
     }
 
     fmtTid(d) {
-        return d.toLocaleTimeString('no-NO', {hour: '2-digit', minute: '2-digit'});
+        // Use explicit Europe/Oslo formatting
+        return formatTimeOslo(d);
     }
 
     fmtM(cm) {
@@ -99,14 +87,14 @@ export class TidalManager {
             UIComponents.updateContent(this.elements.tideNext1(),
                 `${this.norskType(a.type)}${a.type ? " " : ""}${this.fmtTid(a.time)} (${this.fmtM(a.cm)})`);
         } else {
-            UIComponents.updateContent(this.elements.tideNext1(), '—');
+            UIComponents.updateContent(this.elements.tideNext1(), '\u2014');
         }
 
         if (b) {
             UIComponents.updateContent(this.elements.tideNext2(),
                 `${this.norskType(b.type)}${b.type ? " " : ""}${this.fmtTid(b.time)} (${this.fmtM(b.cm)})`);
         } else {
-            UIComponents.updateContent(this.elements.tideNext2(), '—');
+            UIComponents.updateContent(this.elements.tideNext2(), '\u2014');
         }
     }
 
@@ -117,6 +105,16 @@ export class TidalManager {
             const url = CONFIG.ENDPOINTS.TIDAL;
             // Use apiClient to fetch tidal data (now expects JSON)
             const result = await this.apiClient.get(url, 'tidal');
+
+            // If API provided serverNowMs, store global server time for correctedNow
+            const serverNowCandidate = result?.serverNowMs ?? result?.data?.serverNowMs;
+            if (serverNowCandidate !== undefined && serverNowCandidate !== null) {
+                const serverNow = Number(serverNowCandidate);
+                if (!Number.isNaN(serverNow) && Number.isFinite(serverNow)) {
+                    appState.setState('server.nowMs', serverNow, { silent: true });
+                    appState.setState('server.clockDeltaMs', Date.now() - serverNow, { silent: true });
+                }
+            }
 
             let tidalEvents = [];
             if (result && Array.isArray(result.events) && result.events.length > 0) {

@@ -75,14 +75,31 @@ header('Access-Control-Allow-Origin: *');
 header('Content-Type: application/json; charset=utf-8');
 foreach ($out as $h) header($h, false);
 
+// Add server timestamps so clients can align their clocks with the server
+$serverNowMs = (int) round(microtime(true) * 1000);
+$serverNowISO = gmdate('c');
+
 if (($resp['code'] ?? 0) === 200) {
-  json_decode($body);
-  if (json_last_error() === JSON_ERROR_NONE) {
+  // Try to decode the upstream body, inject server time, cache and return the modified payload
+  $decoded = json_decode($body, true);
+  if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+    $decoded['serverNowMs'] = $serverNowMs;
+    $decoded['serverNowISO'] = $serverNowISO;
+    $outBody = json_encode($decoded, JSON_UNESCAPED_UNICODE);
+    @file_put_contents($file, $outBody);
+    @file_put_contents($hdrs, json_encode($out));
+    header('X-Cache: MISS');
+    echo $outBody;
+    exit;
+  } else {
+    // If decoding fails for any reason, fall back to returning the original body
     @file_put_contents($file, $body);
     @file_put_contents($hdrs, json_encode($out));
+    header('X-Cache: MISS');
+    echo $body;
+    exit;
   }
-  header('X-Cache: MISS');
-  echo $body;
 } else {
   echo $body;
+  exit;
 }

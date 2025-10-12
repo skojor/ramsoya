@@ -473,6 +473,10 @@ if (isset($_GET['bidirectional']) && $_GET['bidirectional'] === 'true') {
     $result = $service->getDepartures();
 }
 
+// Add server timestamps so clients can align clocks
+$result['serverNowMs'] = (int) round(microtime(true) * 1000);
+$result['serverNowISO'] = gmdate('c');
+
 error_log("Outputting JSON result");
 echo json_encode($result);
 error_log("Script completed");

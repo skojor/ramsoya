@@ -1,5 +1,6 @@
 // Utility functions
-export const norm360 = d => ((d % 360) + 360) % 360;
+import { CONFIG } from './constants.js';
+import { appState } from './state-manager.js';
 
 export function bust(url) {
     const u = new URL(url, location.href);
@@ -27,8 +28,37 @@ export function humanAge(ms) {
     return `${hours}t ${minutes}m`;
 }
 
-// Import CONFIG for formatters
-import {CONFIG} from './constants.js';
+// Corrected server time helpers
+export function correctedNowMs() {
+    const delta = appState.getState('server.clockDeltaMs');
+    return (delta != null) ? (Date.now() - Number(delta)) : Date.now();
+}
+
+export function correctedNow() {
+    return new Date(correctedNowMs());
+}
+
+// Oslo-specific formatting helpers
+export function formatTimeOslo(date, opts = {}) {
+    const d = (date instanceof Date) ? date : new Date(date);
+    const options = Object.assign({ hour: '2-digit', minute: '2-digit', timeZone: CONFIG.TZ_OSLO, hour12: false }, opts);
+    return new Intl.DateTimeFormat('nb-NO', options).format(d);
+}
+
+export function formatTimeOsloWithSeconds(date) {
+    return formatTimeOslo(date, { second: '2-digit' });
+}
+
+// Return YYYY-MM-DD for the given date in Europe/Oslo timezone to compare local days
+export function dateKeyOslo(date) {
+    const d = (date instanceof Date) ? date : new Date(date);
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: CONFIG.TZ_OSLO,
+        year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(d);
+    const g = t => parts.find(x => x.type === t).value;
+    return `${g('year')}-${g('month')}-${g('day')}`;
+}
 
 // Formatters
 export const hourFmt = new Intl.DateTimeFormat('nb-NO', {

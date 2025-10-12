@@ -55,6 +55,16 @@ export class MoonManager {
         try {
             const data = await apiClient.get(CONFIG.MOON_URL, 'moon');
 
+            // If API provided serverNowMs, store global server time for correctedNow
+            const serverNowCandidate = data?.serverNowMs ?? data?.data?.serverNowMs;
+            if (serverNowCandidate !== undefined && serverNowCandidate !== null) {
+                const serverNow = Number(serverNowCandidate);
+                if (!Number.isNaN(serverNow) && Number.isFinite(serverNow)) {
+                    appState.setState('server.nowMs', serverNow, { silent: true });
+                    appState.setState('server.clockDeltaMs', Date.now() - serverNow, { silent: true });
+                }
+            }
+
             if (data && data.processed) {
                 // Update state instead of direct rendering
                 appState.setState('astronomy.moon', data);
