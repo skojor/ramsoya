@@ -75,7 +75,7 @@ export class ForecastManager {
         const baseNow = (Number.isFinite(Number(serverNowMs)) ? Number(serverNowMs) : correctedNowMs());
 
         // Keep existing lookahead (3h) but apply to server-corrected now
-        const LOOKAHEAD_MS = 3 * 60 * 60 * 1000; // 3 hours
+        const LOOKAHEAD_MS = 2 * 60 * 60 * 1000; // 3 hours
         const now = baseNow + LOOKAHEAD_MS;
 
         const upcoming = series.filter(it => this.parseIsoToUtcMs(it.time) >= now);
