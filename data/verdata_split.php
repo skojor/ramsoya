@@ -68,26 +68,6 @@ try {
   $verStr = $pdo->query("SELECT VERSION()")->fetchColumn();
   [$isMaria,$maj,$min,$pat] = parse_db_version($verStr);
 
-  // --- FIX: Initialize allowed fields and aliases (missing after refactor)
-  // Copied logic from data/verdata.php to ensure $fields and $aliases exist
-  $fieldsQ = $_GET['fields'] ?? 'temp,wind_strength,wind_gust';
-  $allCols = [
-    'temp'           => 'temp',
-    'wtemp'          => 'wtemp',
-    'wind_strength'  => 'wind_strength',
-    'wind_gust'      => 'wind_gust',
-    'humidity'       => 'humidity'
-  ];
-  $req = array_filter(array_map('trim', explode(',', strtolower($fieldsQ))));
-  $fields = [];
-  foreach ($req as $k) if (isset($allCols[$k])) $fields[] = $allCols[$k];
-  if (!$fields) $fields = ['temp','wind_strength','wind_gust'];
-
-  $aliases = [];
-  foreach ($fields as $col) $aliases[$col] = ($col === 'wind_strength') ? 'wind' : (($col === 'wind_gust') ? 'gust' : $col);
-
-  // Agg alle kolonner (vi subsetter senere)
-  $aggColsSQL = ['temp','wtemp','wind_strength','wind_gust','humidity'];
   $cteSupported = $isMaria ? ($maj>10 || ($maj==10 && $min>=2)) : ($maj>=8);
   $bucketCount = (int)floor(($endDT->getTimestamp() - $startDT->getTimestamp()) / $step) + 1;
   $maxSafe = 900;
