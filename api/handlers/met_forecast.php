@@ -8,7 +8,7 @@ use Ramsoya\Api\Lib\HttpClient;
 // met_forecast.php — Proxy for MET Locationforecast/2.0 compact
 // © deg. Husk å endre app-navn/kontakt!
 
-require_once rtrim(PRIVATE_PATH, '/\\') . '/met_forecastcred.php';
+require_private('met_forecastcred.php');
 
 // Tillatte parametre
 $allowed = ['lat','lon','altitude']; // elevation alias

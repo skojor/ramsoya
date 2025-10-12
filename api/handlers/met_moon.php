@@ -9,7 +9,7 @@ use Ramsoya\Api\Lib\HttpClient;
 // Enhanced proxy for MET Norway Sunrise Moon API with server-side processing
 // © 2025 Skorstad Engineering AS
 
-require __DIR__ . '/../../private/met_forecastcred.php';
+require_private('/met_forecastcred.php');
 
 // Tillatte query-parametre (whitelist)
 $allowedParams = ['lat','lon','date','offset','elevation','day','to','lang'];

@@ -14,7 +14,7 @@ function parse_db_version($s) {
 
 // Ensure PRIVATE_PATH is defined by the API bootstrap
 require_once __DIR__ . '/../api/lib/bootstrap.php';
-require_once rtrim(PRIVATE_PATH, '/\\') . '/konfigs.php';
+require_private('konfigs.php');
 
 try {
   $debug     = isset($_GET['debug']) ? (int)$_GET['debug'] : 0;
