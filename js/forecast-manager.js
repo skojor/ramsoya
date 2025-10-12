@@ -1,6 +1,6 @@
 // Weather forecast management
 import { CONFIG, YR_SYMBOL_MAP, iconDefault } from './constants.js';
-import { hourFmt } from './utils.js';
+import { hourFmt, correctedNowMs } from './utils.js';
 import { appState } from './state-manager.js';
 import { apiClient } from './api-client.js';
 import { UIComponents } from './ui-components.js';
@@ -57,8 +57,11 @@ export class ForecastManager {
         }
 
         // Use server-provided time as authoritative baseline to avoid client clock skew
+        // Prefer forecast-specific server timestamp if present, otherwise use the global
+        // server-corrected time (correctedNowMs) which is set when any handler provided
+        // a serverNowMs value.
         const serverNowMs = appState.getState('weather.forecastServerNow');
-        const baseNow = (Number.isFinite(Number(serverNowMs)) ? Number(serverNowMs) : Date.now());
+        const baseNow = (Number.isFinite(Number(serverNowMs)) ? Number(serverNowMs) : correctedNowMs());
 
         // Keep existing lookahead (3h) but apply to server-corrected now
         const LOOKAHEAD_MS = 3 * 60 * 60 * 1000; // 3 hours
