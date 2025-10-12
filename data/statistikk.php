@@ -1,7 +1,14 @@
 <?php
 // Ensure PRIVATE_PATH is defined by the API bootstrap
 require_once __DIR__ . '/../api/lib/bootstrap.php';
-require_private('konfigs.php');
+
+$konfigfile = rtrim(PRIVATE_PATH, '/\\') . '/konfigs.php';
+if (!file_exists($konfigfile) || !is_readable($konfigfile)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Missing konfig file', 'expected' => $konfigfile]);
+    exit;
+}
+require $konfigfile;
 
 // --- HTTP-headers ---
 header('Content-Type: application/json; charset=utf-8');

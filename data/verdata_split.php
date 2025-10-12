@@ -14,7 +14,14 @@ function parse_db_version($s) {
 
 // Ensure PRIVATE_PATH is defined by the API bootstrap
 require_once __DIR__ . '/../api/lib/bootstrap.php';
-require_private('konfigs.php');
+
+$konfigfile = rtrim(PRIVATE_PATH, '/\\') . '/konfigs.php';
+if (!file_exists($konfigfile) || !is_readable($konfigfile)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Missing konfig file', 'expected' => $konfigfile]);
+    exit;
+}
+require $konfigfile;
 
 try {
   $debug     = isset($_GET['debug']) ? (int)$_GET['debug'] : 0;
@@ -27,6 +34,24 @@ try {
   $useCTE    = isset($_GET['use_cte']) ? (int)$_GET['use_cte'] : null;
 
   $aggFn = ['avg'=>'AVG','min'=>'MIN','max'=>'MAX'][$agg] ?? 'AVG';
+
+  // Parse requested fields (same logic as data/verdata.php)
+  $fieldsQ = $_GET['fields'] ?? 'temp,wind_strength,wind_gust';
+  $allCols = [
+    'temp'           => 'temp',
+    'wtemp'          => 'wtemp',
+    'wind_strength'  => 'wind_strength',
+    'wind_gust'      => 'wind_gust',
+    'humidity'       => 'humidity'
+  ];
+  $req = array_filter(array_map('trim', explode(',', strtolower($fieldsQ))));
+  $fields = [];
+  foreach ($req as $k) if (isset($allCols[$k])) $fields[] = $allCols[$k];
+  if (!$fields) $fields = ['temp','wind_strength','wind_gust'];
+
+  // Build aliases (wind_strength -> wind, wind_gust -> gust)
+  $aliases = [];
+  foreach ($fields as $col) $aliases[$col] = ($col === 'wind_strength') ? 'wind' : (($col === 'wind_gust') ? 'gust' : $col);
 
   try { $tz = new DateTimeZone($tzParam); } catch(Throwable $e) { $tz = new DateTimeZone('Europe/Oslo'); }
   $now = new DateTimeImmutable('now', $tz);

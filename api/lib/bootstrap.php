@@ -42,7 +42,7 @@ if (!function_exists('require_private')) {
             echo json_encode(['error' => 'Missing private configuration', 'expected' => $file], JSON_UNESCAPED_UNICODE);
             exit;
         }
-        require_once $file;
+        require $file;
     }
 }
 
