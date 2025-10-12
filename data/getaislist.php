@@ -20,7 +20,7 @@ require_once __DIR__ . '/../api/lib/bootstrap.php';
 // Load credentials (outside webroot). Fail early with a clear JSON error if missing.
 $credFile = rtrim(PRIVATE_PATH, '/\\') . '/konfigs.php';
 
-include_once $credFile;
+require_once $credFile;
 
 // Validate expected variables from credentials file
 if (!isset($dbUser, $dbPass, $dbHost, $dbAis, $dbCharset)) {

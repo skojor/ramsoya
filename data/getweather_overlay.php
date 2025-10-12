@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../api/lib/bootstrap.php';
-include_once rtrim(PRIVATE_PATH, '/\\') . '/konfigs.php';
+require_once rtrim(PRIVATE_PATH, '/\\') . '/konfigs.php';
 
 // Validate expected variables from credentials file
 if (!isset($dbUser, $dbPass, $dbHost, $wxSources, $dbCharset, $dbName)) {
