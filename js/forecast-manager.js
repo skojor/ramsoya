@@ -149,17 +149,18 @@ export class ForecastManager {
             const data = await apiClient.get(CONFIG.FORECAST_URL, 'forecast');
 
             if (data) {
+                if (data.serverNowMs) {
+                    appState.setState('weather.forecastServerNow', data.serverNowMs, { silent: true });
+                    // Mirror to a global server.nowMs and compute a clock delta for global use
+                    const serverNow = Number(data.serverNowMs);
+                    appState.setState('server.nowMs', serverNow, { silent: true });
+                    appState.setState('server.clockDeltaMs', Date.now() - serverNow, { silent: true });
+                }
                 const series = data?.properties?.timeseries || [];
                 if (series.length > 0) {
                     appState.setState('weather.forecast', series);
                     // Store server timestamp if provided so we can base "now" comparisons on it
-                    if (data.serverNowMs) {
-                        appState.setState('weather.forecastServerNow', data.serverNowMs, { silent: true });
-                        // Mirror to a global server.nowMs and compute a clock delta for global use
-                        const serverNow = Number(data.serverNowMs);
-                        appState.setState('server.nowMs', serverNow, { silent: true });
-                        appState.setState('server.clockDeltaMs', Date.now() - serverNow, { silent: true });
-                    }
+
                 } else {
                     console.warn('No forecast data available in response');
                     appState.setState('weather.forecast', null);
