@@ -56,7 +56,14 @@ export class ForecastManager {
             return;
         }
 
-        const now = Date.now() + 3 * 60 * 60 * 1000; // 4h lookahead to skip past hours with no forecast data
+        // Use server-provided time as authoritative baseline to avoid client clock skew
+        const serverNowMs = appState.getState('weather.forecastServerNow');
+        const baseNow = (Number.isFinite(Number(serverNowMs)) ? Number(serverNowMs) : Date.now());
+
+        // Keep existing lookahead (3h) but apply to server-corrected now
+        const LOOKAHEAD_MS = 3 * 60 * 60 * 1000; // 3 hours
+        const now = baseNow + LOOKAHEAD_MS;
+
         const upcoming = series.filter(it => new Date(it.time).getTime() >= now);
         const cards = [];
 
@@ -131,6 +138,14 @@ export class ForecastManager {
                 const series = data?.properties?.timeseries || [];
                 if (series.length > 0) {
                     appState.setState('weather.forecast', series);
+                    // Store server timestamp if provided so we can base "now" comparisons on it
+                    if (data.serverNowMs) {
+                        appState.setState('weather.forecastServerNow', data.serverNowMs, { silent: true });
+                        // Mirror to a global server.nowMs and compute a clock delta for global use
+                        const serverNow = Number(data.serverNowMs);
+                        appState.setState('server.nowMs', serverNow, { silent: true });
+                        appState.setState('server.clockDeltaMs', Date.now() - serverNow, { silent: true });
+                    }
                 } else {
                     console.warn('No forecast data available in response');
                     appState.setState('weather.forecast', null);

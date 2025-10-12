@@ -4,6 +4,7 @@ import { appState } from './state-manager.js';
 import { apiClient } from './api-client.js';
 import { UIComponents } from './ui-components.js';
 import { visibilityManager } from './visibility-manager.js';
+import { correctedNowMs, correctedNow, dateKeyOslo, formatTimeOslo } from './utils.js';
 
 export class EnturManager {
     constructor() {
@@ -65,6 +66,16 @@ export class EnturManager {
         try {
             const data = await apiClient.get(this.apiUrl, 'entur');
 
+            // If API provided serverNowMs, store global server time for correctedNow
+            const serverNowCandidate = data?.serverNowMs ?? data?.data?.serverNowMs;
+            if (serverNowCandidate !== undefined && serverNowCandidate !== null) {
+                const serverNow = Number(serverNowCandidate);
+                if (!Number.isNaN(serverNow) && Number.isFinite(serverNow)) {
+                    appState.setState('server.nowMs', serverNow, { silent: true });
+                    appState.setState('server.clockDeltaMs', Date.now() - serverNow, { silent: true });
+                }
+            }
+
             // Handle both null responses and proper data structure
             let enturData;
             if (data === null) {
@@ -109,18 +120,19 @@ export class EnturManager {
         }
     }
 
-    fmtUpdated(date = new Date()) {
-        const pad = n => String(n).padStart(2, "0");
-        return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    fmtUpdated(date = correctedNow()) {
+        return formatTimeOslo(date);
     }
 
     formatTime(isoString) {
-        if (!isoString) return '—';
+        if (!isoString) return '\u2014';
         const depTime = new Date(isoString);
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-        const depDate = new Date(depTime.getFullYear(), depTime.getMonth(), depTime.getDate());
+
+        // Use server-corrected now for day-boundary comparisons
+        const nowMs = correctedNowMs();
+        const todayKey = dateKeyOslo(nowMs);
+        const tomorrowKey = dateKeyOslo(new Date(nowMs + 24 * 60 * 60 * 1000));
+        const depKey = dateKeyOslo(depTime);
 
         const timeStr = new Intl.DateTimeFormat('nb-NO', {
             hour: '2-digit',
@@ -128,9 +140,9 @@ export class EnturManager {
             timeZone: CONFIG.TZ_OSLO
         }).format(depTime);
 
-        if (depDate.getTime() === today.getTime()) {
+        if (depKey === todayKey) {
             return timeStr;
-        } else if (depDate.getTime() === tomorrow.getTime()) {
+        } else if (depKey === tomorrowKey) {
             return timeStr + ' <span class="badge-tomorrow">(i morgen)</span>';
         } else {
             const dayStr = new Intl.DateTimeFormat('nb-NO', {
