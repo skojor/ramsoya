@@ -24,7 +24,7 @@ if (!file_exists($credFile) || !is_readable($credFile)) {
     echo json_encode(['success' => false, 'error' => 'Missing AIS credentials file', 'expected' => $credFile]);
     exit;
 }
-require_once $credFile;
+require $credFile;
 
 // Validate expected variables from aiscred.php
 if (!isset($dsn, $user, $pass)) {
