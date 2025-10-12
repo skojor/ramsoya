@@ -1,7 +1,7 @@
 <?php
 // Ensure PRIVATE_PATH is defined by the API bootstrap
 require_once __DIR__ . '/../api/lib/bootstrap.php';
-require_once rtrim(PRIVATE_PATH, '/\\') . '/konfigs.php';
+require_private('konfigs.php');
 
 // --- HTTP-headers ---
 header('Content-Type: application/json; charset=utf-8');

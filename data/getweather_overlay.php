@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../private/weathercred.php';
+require_once __DIR__ . '/../api/lib/bootstrap.php';
+require_once rtrim(PRIVATE_PATH, '/\\') . '/weathercred.php';
 
 // ---------- HJELPEFUNKSJONER ----------
 function wdir_to_text(?int $deg): ?string {
