@@ -21,13 +21,13 @@ $path = trim($path, '/');
 
 // If empty, show a small index of available endpoints
 $available = [
-    'adsb' => 'adsb.php',
-    'entur' => 'entur.php',
-    'image_metadata' => 'image_metadata.php',
-    'kartverket' => 'kartverket.php',
-    'met_forecast' => 'met_forecast.php',
-    'met_moon' => 'met_moon.php',
-    'sunrise' => 'sunrise.php',
+    'adsb' => 'handlers/adsb.php',
+    'entur' => 'handlers/entur.php',
+    'image_metadata' => 'handlers/image_metadata.php',
+    'kartverket' => 'handlers/kartverket.php',
+    'met_forecast' => 'handlers/met_forecast.php',
+    'met_moon' => 'handlers/met_moon.php',
+    'sunrise' => 'handlers/sunrise.php',
 ];
 
 if ($path === '' || $path === 'router.php') {
