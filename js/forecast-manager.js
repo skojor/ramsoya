@@ -13,6 +13,17 @@ export class ForecastManager {
         this.setupStateSubscriptions();
     }
 
+    // Parse an ISO timestamp string and return epoch ms, treating timestamps without
+    // an explicit timezone as UTC. This avoids client-local parsing differences.
+    parseIsoToUtcMs(iso) {
+        if (!iso) return NaN;
+        const s = String(iso).trim();
+        // If string already ends with Z or an explicit timezone offset, parse directly
+        if (/(?:Z|[+\-]\d{2}:\d{2})$/i.test(s)) return Date.parse(s);
+        // Otherwise treat as UTC by appending Z
+        return Date.parse(s + 'Z');
+    }
+
     setupStateSubscriptions() {
         // Update UI when forecast data changes
         appState.subscribe('weather.forecast', (forecastData) => {
@@ -67,7 +78,7 @@ export class ForecastManager {
         const LOOKAHEAD_MS = 3 * 60 * 60 * 1000; // 3 hours
         const now = baseNow + LOOKAHEAD_MS;
 
-        const upcoming = series.filter(it => new Date(it.time).getTime() >= now);
+        const upcoming = series.filter(it => this.parseIsoToUtcMs(it.time) >= now);
         const cards = [];
 
         for (let i = 0; i < upcoming.length && cards.length < 6; i += 4) {
@@ -84,7 +95,7 @@ export class ForecastManager {
     }
 
     createForecastCardData(item) {
-        const tUTC = new Date(item.time);
+        const tUTC = new Date(this.parseIsoToUtcMs(item.time));
         const tLocal = new Date(tUTC.toLocaleString('en-US', { timeZone: CONFIG.TZ_OSLO }));
         const timeLabel = hourFmt.format(tLocal);
 
