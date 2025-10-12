@@ -8,8 +8,10 @@ use Ramsoya\Api\Lib\HttpClient;
 // met_moon.php
 // Enhanced proxy for MET Norway Sunrise Moon API with server-side processing
 // © 2025 Skorstad Engineering AS
+const APP_NAME  = 'Ramsøyværet';
+const CONTACT   = 'post@iship.no';
+const CACHE_TTL = 3600; // 60 min
 
-require_private('/met_forecastcred.php');
 
 // Tillatte query-parametre (whitelist)
 $allowedParams = ['lat','lon','date','offset','elevation','day','to','lang'];
