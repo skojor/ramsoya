@@ -51,10 +51,10 @@ if (!defined('CACHE_TTL')) {
     define('CACHE_TTL', 15 * 60); // 15 minutes default
 }
 if (!defined('APP_NAME')) {
-    define('APP_NAME', 'ramsoya');
+    define('APP_NAME', 'Ramsøyværet');
 }
 if (!defined('CONTACT')) {
-    define('CONTACT', 'noreply@example.com');
+    define('CONTACT', 'post@iship.no');
 }
 // Set a sensible default timezone if not set
 if (!ini_get('date.timezone')) {
