@@ -20,11 +20,17 @@ if ($baseOverride) {
 
 // Use HttpClient::head to fetch headers
 $resp = HttpClient::head($imageUrl, ['User-Agent: RamsoyaImageProbe/1.0'], 8);
+// Provide server time for clients to reference
+$serverNowMs = (int) round(microtime(true) * 1000);
+$serverNowISO = gmdate('c');
+
 if ($resp['error']) {
     http_response_code(500);
     echo json_encode([
         'error' => 'Could not fetch image headers: ' . $resp['error'],
-        'success' => false
+        'success' => false,
+        'serverNowMs' => $serverNowMs,
+        'serverNowISO' => $serverNowISO
     ]);
     exit;
 }
@@ -40,12 +46,16 @@ foreach ($resp['headers'] as $h) {
 if ($lastModified) {
     echo json_encode([
         'lastModified' => $lastModified,
-        'success' => true
+        'success' => true,
+        'serverNowMs' => $serverNowMs,
+        'serverNowISO' => $serverNowISO
     ]);
 } else {
     http_response_code(500);
     echo json_encode([
         'error' => 'Could not fetch image headers',
-        'success' => false
+        'success' => false,
+        'serverNowMs' => $serverNowMs,
+        'serverNowISO' => $serverNowISO
     ]);
 }

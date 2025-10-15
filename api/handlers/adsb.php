@@ -180,13 +180,20 @@ try {
         'raw_count' => count($data['aircraft'])
     ];
 
+    // Add server time in ms and ISO so clients can compute correctedNow
+    $response['serverNowMs'] = (int) round(microtime(true) * 1000);
+    $response['serverNowISO'] = gmdate('c');
+
     echo json_encode($response, JSON_PRETTY_PRINT);
 
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode([
+    $errResp = [
         'success' => false,
         'error' => $e->getMessage(),
         'timestamp' => time()
-    ]);
+    ];
+    $errResp['serverNowMs'] = (int) round(microtime(true) * 1000);
+    $errResp['serverNowISO'] = gmdate('c');
+    echo json_encode($errResp, JSON_PRETTY_PRINT);
 }

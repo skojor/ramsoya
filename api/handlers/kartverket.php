@@ -123,18 +123,23 @@ try {
     }
 
     // Return as JSON
+    $serverNowMs = (int) round(microtime(true) * 1000);
+    $serverNowISO = gmdate('c');
+
     if (!empty($events)) {
-        echo json_encode(['events' => $events], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        echo json_encode(['events' => $events, 'serverNowMs' => $serverNowMs, 'serverNowISO' => $serverNowISO], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     } else {
-        echo json_encode(['events' => []], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        echo json_encode(['events' => [], 'serverNowMs' => $serverNowMs, 'serverNowISO' => $serverNowISO], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
 } catch (Throwable $e) {
     http_response_code(500);
+    $serverNowMs = (int) round(microtime(true) * 1000);
+    $serverNowISO = gmdate('c');
     if ($debug) {
-        echo json_encode(['error' => 'Internal error', 'detail' => $e->getMessage(), 'trace' => $e->getTraceAsString()], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['error' => 'Internal error', 'detail' => $e->getMessage(), 'trace' => $e->getTraceAsString(), 'serverNowMs' => $serverNowMs, 'serverNowISO' => $serverNowISO], JSON_UNESCAPED_UNICODE);
     } else {
-        echo json_encode(['error' => 'Internal server error'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['error' => 'Internal server error', 'serverNowMs' => $serverNowMs, 'serverNowISO' => $serverNowISO], JSON_UNESCAPED_UNICODE);
     }
     exit;
 }

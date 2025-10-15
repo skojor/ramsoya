@@ -1,6 +1,6 @@
 // Weather forecast management
 import { CONFIG, YR_SYMBOL_MAP, iconDefault } from './constants.js';
-import { hourFmt } from './utils.js';
+import { hourFmt, correctedNowMs } from './utils.js';
 import { appState } from './state-manager.js';
 import { apiClient } from './api-client.js';
 import { UIComponents } from './ui-components.js';
@@ -11,6 +11,17 @@ export class ForecastManager {
 
         // Subscribe to state changes
         this.setupStateSubscriptions();
+    }
+
+    // Parse an ISO timestamp string and return epoch ms, treating timestamps without
+    // an explicit timezone as UTC. This avoids client-local parsing differences.
+    parseIsoToUtcMs(iso) {
+        if (!iso) return NaN;
+        const s = String(iso).trim();
+        // If string already ends with Z or an explicit timezone offset, parse directly
+        if (/(?:Z|[+\-]\d{2}:\d{2})$/i.test(s)) return Date.parse(s);
+        // Otherwise treat as UTC by appending Z
+        return Date.parse(s + 'Z');
     }
 
     setupStateSubscriptions() {
@@ -56,8 +67,18 @@ export class ForecastManager {
             return;
         }
 
-        const now = Date.now() + 3 * 60 * 60 * 1000; // 4h lookahead to skip past hours with no forecast data
-        const upcoming = series.filter(it => new Date(it.time).getTime() >= now);
+        // Use server-provided time as authoritative baseline to avoid client clock skew
+        // Prefer forecast-specific server timestamp if present, otherwise use the global
+        // server-corrected time (correctedNowMs) which is set when any handler provided
+        // a serverNowMs value.
+        const serverNowMs = appState.getState('weather.forecastServerNow');
+        const baseNow = (Number.isFinite(Number(serverNowMs)) ? Number(serverNowMs) : correctedNowMs());
+
+        // Keep existing lookahead (3h) but apply to server-corrected now
+        const LOOKAHEAD_MS = 2 * 60 * 60 * 1000; // 3 hours
+        const now = baseNow + LOOKAHEAD_MS;
+
+        const upcoming = series.filter(it => this.parseIsoToUtcMs(it.time) >= now);
         const cards = [];
 
         for (let i = 0; i < upcoming.length && cards.length < 6; i += 4) {
@@ -74,7 +95,7 @@ export class ForecastManager {
     }
 
     createForecastCardData(item) {
-        const tUTC = new Date(item.time);
+        const tUTC = new Date(this.parseIsoToUtcMs(item.time));
         const tLocal = new Date(tUTC.toLocaleString('en-US', { timeZone: CONFIG.TZ_OSLO }));
         const timeLabel = hourFmt.format(tLocal);
 
@@ -128,9 +149,18 @@ export class ForecastManager {
             const data = await apiClient.get(CONFIG.FORECAST_URL, 'forecast');
 
             if (data) {
+                if (data.serverNowMs) {
+                    appState.setState('weather.forecastServerNow', data.serverNowMs, { silent: true });
+                    // Mirror to a global server.nowMs and compute a clock delta for global use
+                    const serverNow = Number(data.serverNowMs);
+                    appState.setState('server.nowMs', serverNow, { silent: true });
+                    appState.setState('server.clockDeltaMs', Date.now() - serverNow, { silent: true });
+                }
                 const series = data?.properties?.timeseries || [];
                 if (series.length > 0) {
                     appState.setState('weather.forecast', series);
+                    // Store server timestamp if provided so we can base "now" comparisons on it
+
                 } else {
                     console.warn('No forecast data available in response');
                     appState.setState('weather.forecast', null);

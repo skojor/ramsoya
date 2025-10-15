@@ -1,6 +1,6 @@
 // Weather overlay management
 import { CONFIG } from './constants.js';
-import { bust } from './utils.js';
+import { bust, correctedNowMs } from './utils.js';
 import { appState } from './state-manager.js';
 import { apiClient } from './api-client.js';
 import { UIComponents } from './ui-components.js';
@@ -94,7 +94,8 @@ export class WeatherManager {
 
             if (weatherData) {
                 appState.setState('weather.current', weatherData);
-                appState.setState('weather.lastUpdate', Date.now());
+                // Use server-corrected time for lastUpdate when available
+                appState.setState('weather.lastUpdate', correctedNowMs());
             } else {
                 console.warn('No weather data received');
                 appState.setState('weather.current', null);

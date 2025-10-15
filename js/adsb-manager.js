@@ -1,6 +1,6 @@
 // ADSB aircraft tracking management
 import {CONFIG} from './constants.js';
-import {ensureTooltip, positionTooltip, safeUrlFrom} from './utils.js';
+import {ensureTooltip, positionTooltip, safeUrlFrom, formatTimeOsloWithSeconds} from './utils.js';
 import {appState} from './state-manager.js';
 import {apiClient} from './api-client.js';
 import {UIComponents} from './ui-components.js';
@@ -68,11 +68,10 @@ export class ADSBManager {
 
         const raw = a._raw || a;
 
-        // Helper to format a Date as HH:mm:ss
+        // Helper to format a Date as HH:mm:ss in Oslo timezone
         const fmtTime = (date) => {
             if (!(date instanceof Date) || isNaN(date)) return "–";
-            const pad = (n) => String(n).padStart(2, '0');
-            return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+            return formatTimeOsloWithSeconds(date);
         };
 
         // Prefer already-computed/normalized fields from the tableData row
@@ -179,8 +178,7 @@ export class ADSBManager {
                     if (!isNaN(parsed)) dateObj = new Date(parsed);
                 }
                 if (dateObj instanceof Date && !isNaN(dateObj)) {
-                    const pad = n => String(n).padStart(2, "0");
-                    lastSeen = `${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}:${pad(dateObj.getSeconds())}`;
+                    lastSeen = formatTimeOsloWithSeconds(dateObj);
                 }
             }
 
@@ -351,6 +349,13 @@ export class ADSBManager {
             UIComponents.toggleElement(this.elements.error(), false);
 
             const data = await apiClient.get(this.endpoint, 'adsb');
+
+            // If API provided serverNowMs, store global server time for correctedNow
+            if (data && data.serverNowMs) {
+                const serverNow = Number(data.serverNowMs);
+                appState.setState('server.nowMs', serverNow, { silent: true });
+                appState.setState('server.clockDeltaMs', Date.now() - serverNow, { silent: true });
+            }
 
             // Handle both null responses and proper data structure
             let aircraft;
