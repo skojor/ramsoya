@@ -81,5 +81,4 @@ snitt.jpg
 stats/
 error/
 robots.txt
-
-/adsb/
+adsb/**
