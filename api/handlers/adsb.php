@@ -189,7 +189,6 @@ try {
 } catch (Throwable $e) {
     error_log('ADSB handler error: ' . $e);
     http_response_code(500);
-
     $errResp = [
         'success' => false,
         'error' => $e->getMessage(),
@@ -197,6 +196,5 @@ try {
     ];
     $errResp['serverNowMs'] = (int) round(microtime(true) * 1000);
     $errResp['serverNowISO'] = gmdate('c');
-
     echo json_encode($errResp, JSON_PRETTY_PRINT);
 }
