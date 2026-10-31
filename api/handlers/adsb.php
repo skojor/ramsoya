@@ -186,7 +186,8 @@ try {
 
     echo json_encode($response, JSON_PRETTY_PRINT);
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
+    error_log('ADSB handler error: ' . $e);
     http_response_code(500);
     $errResp = [
         'success' => false,
