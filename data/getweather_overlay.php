@@ -96,10 +96,10 @@ function fetch_latest(PDO $pdo, string $table, string $label, bool $raw = false)
 
     $vind = [];
     // Vindretning bare for Brygga
-    //if ($label !== 'Liafjellet') {
+    if ($label !== 'Liafjellet') {
         if ($wdir !== null) $vind[] = $wdir;
         if ($wdeg !== null) $vind[] = $wdeg . "°";
-    //}
+    }
     if ($wspd_txt !== null) $vind[] = $wspd_txt . " m/s";
     if ($wgst_txt !== null) $vind[] = "(kast " . $wgst_txt . ")";
     if ($wind_label !== null) $vind[] = "– " . $wind_label;
